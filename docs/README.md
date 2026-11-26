@@ -7,6 +7,7 @@ Esta carpeta concentra los planes de implementación y la documentación técnic
 | Documento | Propósito |
 |---|---|
 | [plan-maestro.md](plan-maestro.md) | Estado actual, brechas, roadmap y criterios de aceptación |
+| [plan-original.md](plan-original.md) | Spec/plan inicial extraído de `AGENTS.md` (referencia histórica) |
 | [arquitectura.md](arquitectura.md) | Arquitectura hexagonal-lite, reglas de dependencia y estructura |
 | [cobertura-api.md](cobertura-api.md) | Cobertura de endpoints Rone Arena API, políticas y pendientes |
 | [modelo-datos.md](modelo-datos.md) | Manifest v2, layout de salida, hashing, resume y corrupción |
