@@ -218,14 +218,16 @@ def sync_academy(
         page_size=page_size,
     )
 
+    lane_tasks: list[Artifact] = []
     for hero_id, folder in identities:
         lanes = hero_lanes(load_records(store, lane_key(hero_id)))
-        if not lanes:
-            continue
+        lane_tasks.extend(lane_artifacts(hero_id, folder, lanes))
+
+    if lane_tasks:
         sync_many(
             client,
             store,
-            lane_artifacts(hero_id, folder, lanes),
+            lane_tasks,
             report,
             force=force,
             page_size=page_size,
