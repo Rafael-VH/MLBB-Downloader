@@ -41,7 +41,7 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 
 9. ~~**Compatibilidad GUI**~~: PySide6 6.12.0 (`cp310-abi3-win_amd64`) instalado en Python 3.14.0; extra `gui` definido en `pyproject.toml`.
 10. **GUI PySide6** (en progreso): MVP con scope por dominio (All/Heroes/Academy/Images), sync/check, progreso `_progress.json`, log, clear log, cancelación cooperativa, settings persistentes y About. Falta pause/retry fino, UX avanzada y más cobertura GUI.
-11. **Packaging** (en progreso): extra `packaging`, spec base `packaging/mlbb-downloader.spec`, smoke build local genera `dist/MLBBDownloader.exe`. Falta smoke build en máquina limpia y validación de assets Qt.
+11. **Packaging** (en progreso): extra `packaging`, spec base `packaging/mlbb-downloader.spec`, smoke build local genera `dist/MLBBDownloader.exe` (~54 MB); arranque offscreen 5s sin crash. Falta smoke build en máquina limpia y validación de assets Qt.
 12. **CI/Release** (en progreso): workflows base `.github/workflows/ci.yml` y `release.yml`; falta smoke build y validación en CI real.
 13. ~~**Legal/repo hygiene**~~: `LICENSE` MIT, `CHANGELOG.md`, disclaimer en README y GUI About.
 
