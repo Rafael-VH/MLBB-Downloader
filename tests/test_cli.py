@@ -32,9 +32,10 @@ def test_api_errors_are_reported_without_a_traceback(monkeypatch) -> None:
     assert "error: The target win rate must be greater" in result.output
 
 
-def test_academy_and_addon_commands_are_registered() -> None:
+def test_academy_addon_images_commands_are_registered() -> None:
     result = runner.invoke(cli.app, ["--help"])
 
     assert result.exit_code == 0
     assert "academy" in result.output
     assert "addon" in result.output
+    assert "images" in result.output

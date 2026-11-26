@@ -26,6 +26,11 @@ uv run mlbb heroes check
 uv run mlbb academy sync
 uv run mlbb academy check
 
+# Image assets (discovered from JSON already in the store)
+uv run mlbb images sync
+uv run mlbb images check
+uv run mlbb heroes sync --images   # sync JSON + images in one pass
+
 # Addon tools: one-shot, never downloaded in bulk
 uv run mlbb addon win-rate --match-now 100 --wr-now 50 --wr-future 60
 uv run mlbb addon ip
@@ -78,14 +83,15 @@ data/
             └── win-rate-gold.json
 ```
 
-Every artifact stores `{"endpoint", "total", "records"}`. The manifest lets a
+Every JSON artifact stores `{"endpoint", "total", "records"}`. Image assets are
+stored as binary files with SHA-256 hashes in the same manifest. The manifest lets a
 re-run skip completed work, and `check` detects changed, new and missing items
 without writing anything.
 
 ## Download policy
 
 Bulk sync covers game data. A few endpoints are catalogued in
-`api/registry.py` but deliberately excluded:
+`domain/registry.py` but deliberately excluded:
 
 - **User-generated content** (`/academy/recommended`, `/academy/heroes/{id}/recommended`).
   The global feed reports `total: 10000` and a single hero had 204 builds; the
@@ -112,7 +118,7 @@ Measured against the live API, not assumed:
 - `Accept-Encoding: gzip` is pinned; the API defaults to zstd.
 - Payloads are raw upstream records with shapes that differ between list and
   detail endpoints, so no response models are generated.
-- One engine (`downloaders/engine.py`) owns resume, atomic writes, hashing and
+- One engine (`usecases/engine.py`) owns resume, atomic writes, hashing and
   reports; domains only declare artifacts to fetch.
 - The manifest is flushed every 25 artifacts. A crash can lose at most that
   window of manifest entries; those files are fetched again, never corrupted.

@@ -16,6 +16,7 @@ from mlbb_downloader.errors import ApiError
 from mlbb_downloader.usecases.academy import check_academy, sync_academy
 from mlbb_downloader.usecases.addon import ip_location, win_rate_calculator
 from mlbb_downloader.usecases.heroes import check_heroes, sync_heroes
+from mlbb_downloader.usecases.images import check_images, sync_images
 
 app = typer.Typer(help="Download Mobile Legends: Bang Bang data from the Rone Arena API.")
 heroes_app = typer.Typer(help="Hero data: list, detail, stats, relations and wallpapers.")
@@ -23,9 +24,11 @@ academy_app = typer.Typer(
     help="Academy game data: items, spells, emblems, ranks and hero win rates."
 )
 addon_app = typer.Typer(help="One-shot utilities. Never part of a bulk download.")
+images_app = typer.Typer(help="Image assets extracted from already-downloaded JSON artifacts.")
 app.add_typer(heroes_app, name="heroes")
 app.add_typer(academy_app, name="academy")
 app.add_typer(addon_app, name="addon")
+app.add_typer(images_app, name="images")
 
 OutputOption = Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")]
 BaseUrlOption = Annotated[str | None, typer.Option("--base-url", help="Override the API base URL.")]
@@ -77,6 +80,7 @@ def heroes_sync(
         int | None, typer.Option("--limit", help="Only sync the first N heroes.")
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="Re-download everything.")] = False,
+    images: Annotated[bool, typer.Option("--images", help="Also download image assets.")] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
@@ -84,15 +88,24 @@ def heroes_sync(
     _, client, store = _build(output, base_url, delay)
     with client:
         report = sync_heroes(client, store, limit=limit, force=force)
+        img_report = sync_images(client, store, force=force) if images else None
 
     typer.echo(
         f"downloaded={report.downloaded} skipped={report.skipped} "
         f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
     )
+    if img_report is not None:
+        typer.echo(
+            f"images: downloaded={img_report.downloaded} skipped={img_report.skipped} "
+            f"failed={len(img_report.failed)} elapsed={img_report.elapsed:.1f}s"
+        )
     for failure in report.failed[:10]:
         typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
+    if img_report is not None:
+        for failure in img_report.failed[:10]:
+            typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
 
-    if report.failed:
+    if report.failed or (img_report and img_report.failed):
         raise typer.Exit(code=1)
 
 
@@ -132,6 +145,7 @@ def academy_sync(
         int | None, typer.Option("--limit", help="Only sync the first N heroes.")
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="Re-download everything.")] = False,
+    images: Annotated[bool, typer.Option("--images", help="Also download image assets.")] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
@@ -139,18 +153,27 @@ def academy_sync(
     _, client, store = _build(output, base_url, delay)
     with client:
         report = sync_academy(client, store, limit=limit, force=force)
+        img_report = sync_images(client, store, force=force) if images else None
 
     typer.echo(
         f"downloaded={report.downloaded} skipped={report.skipped} "
         f"failed={len(report.failed)} unavailable={len(report.unavailable)} "
         f"elapsed={report.elapsed:.1f}s"
     )
+    if img_report is not None:
+        typer.echo(
+            f"images: downloaded={img_report.downloaded} skipped={img_report.skipped} "
+            f"failed={len(img_report.failed)} elapsed={img_report.elapsed:.1f}s"
+        )
     for failure in report.failed[:10]:
         typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
     for failure in report.unavailable[:5]:
         typer.echo(f"  UNAVAILABLE {failure.endpoint}: {failure.error}", err=True)
+    if img_report is not None:
+        for failure in img_report.failed[:10]:
+            typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
 
-    if report.failed:
+    if report.failed or (img_report and img_report.failed):
         raise typer.Exit(code=1)
 
 
@@ -219,6 +242,52 @@ def addon_ip(base_url: BaseUrlOption = None, delay: DelayOption = None) -> None:
         f"city={data.get('city')} state={data.get('state')} "
         f"country={data.get('country')} lang={data.get('lang')}"
     )
+
+
+@images_app.command("sync")
+@_guard
+def images_sync(
+    output: OutputOption = None,
+    force: Annotated[bool, typer.Option("--force", help="Re-download all images.")] = False,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Download image assets discovered in locally stored JSON artifacts."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        report = sync_images(client, store, force=force)
+
+    typer.echo(
+        f"downloaded={report.downloaded} skipped={report.skipped} "
+        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+    )
+    for failure in report.failed[:10]:
+        typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
+    if report.failed:
+        raise typer.Exit(code=1)
+
+
+@images_app.command("check")
+@_guard
+def images_check(
+    output: OutputOption = None,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Check local image presence and compare remote hashes."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        report = check_images(client, store)
+
+    typer.echo(
+        f"unchanged={report.unchanged} changed={len(report.changed)} "
+        f"new={len(report.new)} missing={len(report.missing)} "
+        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+    )
+    groups = (("CHANGED", report.changed), ("NEW", report.new), ("MISSING", report.missing))
+    for label, items in groups:
+        for item in items[:10]:
+            typer.echo(f"  {label} {item}")
 
 
 @app.command()
