@@ -1,0 +1,213 @@
+"""Heroes domain, expressed on top of the generic artifact engine."""
+
+from __future__ import annotations
+
+import threading
+import time
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from mlbb_downloader.adapters.arena import ArenaClient
+
+if TYPE_CHECKING:
+    from mlbb_downloader.adapters.progress import ProgressTracker
+from mlbb_downloader.adapters.fsstore import DataStore
+from mlbb_downloader.domain.keying import hero_identity, local_entity_ids
+from mlbb_downloader.domain.layout import sanitize_component
+from mlbb_downloader.usecases.engine import (
+    Artifact,
+    CheckReport,
+    Failure,
+    SyncReport,
+    check_manifest,
+    check_many,
+    check_one,
+    sync_many,
+    sync_one,
+)
+
+__all__ = [
+    "HERO_SUBRESOURCES",
+    "CheckReport",
+    "Failure",
+    "SyncReport",
+    "check_heroes",
+    "hero_identity",
+    "sync_heroes",
+]
+
+INDEX_ENDPOINT = "/heroes"
+INDEX_RELATIVE_PATH = "heroes/index.json"
+INDEX = Artifact(INDEX_ENDPOINT, INDEX_RELATIVE_PATH)
+
+RANK = Artifact("/heroes/rank", "heroes/rank.json", optional=True)
+POSITIONS = Artifact("/heroes/positions", "heroes/positions.json")
+WALLPAPERS_GALLERY = Artifact("/heroes/wallpapers", "heroes/wallpapers-gallery.json")
+COLLECTIONS: tuple[Artifact, ...] = (RANK, POSITIONS, WALLPAPERS_GALLERY)
+
+
+@dataclass(frozen=True, slots=True)
+class HeroResource:
+    name: str
+    template: str
+
+
+HERO_SUBRESOURCES: tuple[HeroResource, ...] = (
+    HeroResource("detail", "/heroes/{hero_id}"),
+    HeroResource("stats", "/heroes/{hero_id}/stats"),
+    HeroResource("skill-combos", "/heroes/{hero_id}/skill-combos"),
+    HeroResource("trends", "/heroes/{hero_id}/trends"),
+    HeroResource("relations", "/heroes/{hero_id}/relations"),
+    HeroResource("counters", "/heroes/{hero_id}/counters"),
+    HeroResource("compatibility", "/heroes/{hero_id}/compatibility"),
+    HeroResource("wallpapers", "/heroes/{hero_id}/wallpapers"),
+)
+
+
+def hero_artifacts(hero_id: int, folder: str) -> list[Artifact]:
+    return [
+        Artifact(
+            endpoint=resource.template.format(hero_id=hero_id),
+            relative_path=f"heroes/{folder}/{resource.name}.json",
+            params={"hero_id": hero_id},
+        )
+        for resource in HERO_SUBRESOURCES
+    ]
+
+
+def sync_heroes(
+    client: ArenaClient,
+    store: DataStore,
+    *,
+    hero_id: int | None = None,
+    limit: int | None = None,
+    force: bool = False,
+    page_size: int | None = None,
+    progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
+) -> SyncReport:
+    """Download hero data, skipping anything already stored."""
+    started = time.monotonic()
+    report = SyncReport()
+
+    if progress is not None:
+        progress.set_phase("heroes:index")
+    index_records = sync_one(client, store, INDEX, report, force=force, page_size=page_size) or []
+    if hero_id is None:
+        if progress is not None:
+            progress.set_phase("heroes:collections", total=len(COLLECTIONS))
+        sync_many(
+            client,
+            store,
+            COLLECTIONS,
+            report,
+            force=force,
+            page_size=page_size,
+            progress=progress,
+            cancel=cancel,
+        )
+
+    heroes = _select_heroes(index_records, hero_id=hero_id, limit=limit)
+    artifacts = list(
+        artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
+    )
+    if progress is not None:
+        progress.set_phase("heroes:details", total=len(artifacts))
+    sync_many(
+        client,
+        store,
+        artifacts,
+        report,
+        force=force,
+        page_size=page_size,
+        progress=progress,
+        cancel=cancel,
+    )
+
+    report.elapsed = time.monotonic() - started
+    return report
+
+
+def check_heroes(
+    client: ArenaClient,
+    store: DataStore,
+    *,
+    hero_id: int | None = None,
+    page_size: int | None = None,
+    progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
+) -> CheckReport:
+    """Compare remote data against local artifacts.
+
+    Work is proportional to what is stored locally: heroes never downloaded are
+    reported as a count, not fetched item by item.
+    """
+    started = time.monotonic()
+    report = CheckReport()
+
+    if progress is not None:
+        progress.set_phase("heroes:index")
+    index_records = check_one(client, store, INDEX, report, page_size=page_size) or []
+    if hero_id is None:
+        if progress is not None:
+            progress.set_phase("heroes:collections", total=len(COLLECTIONS))
+        check_many(
+            client,
+            store,
+            COLLECTIONS,
+            report,
+            page_size=page_size,
+            progress=progress,
+            cancel=cancel,
+        )
+
+        local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
+        for hero in index_records:
+            hid, _ = hero_identity(hero)
+            if hid not in local_ids:
+                report.not_downloaded += 1
+
+        if progress is not None:
+            progress.set_phase("heroes:manifest")
+        check_manifest(
+            client,
+            store,
+            report,
+            prefix=INDEX_ENDPOINT,
+            skip={INDEX.key, *(a.key for a in COLLECTIONS)},
+            page_size=page_size,
+            progress=progress,
+            cancel=cancel,
+        )
+    else:
+        heroes = _select_heroes(index_records, hero_id=hero_id, limit=None)
+        artifacts = list(
+            artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
+        )
+        if progress is not None:
+            progress.set_phase("heroes:details", total=len(artifacts))
+        check_many(
+            client, store, artifacts, report, page_size=page_size, progress=progress, cancel=cancel
+        )
+
+    report.elapsed = time.monotonic() - started
+    return report
+
+
+def _identity_fields(record: dict) -> tuple[int | None, str]:
+    hero_id, name = hero_identity(record)
+    return hero_id, sanitize_component(name)
+
+
+def _select_heroes(
+    index_records: list[dict],
+    *,
+    hero_id: int | None,
+    limit: int | None,
+) -> list[dict]:
+    if hero_id is None:
+        return index_records if limit is None else index_records[:limit]
+    selected = [h for h in index_records if hero_identity(h)[0] == hero_id]
+    if not selected:
+        raise ValueError(f"hero_id {hero_id} not found in heroes index")
+    return selected
