@@ -17,7 +17,7 @@ Branch: `feat/academy-addon` Â· Delivery: work-unit commits Â· Runner: `uv r
 | -- | ---- | ----- | ------ | ------ |
 | T1 | S1 S2 S3 | inline | done | this commit |
 | T2 | S1 S4 | inline | done | `7f363a7` |
-| T3 | S3 S4 | inline | pending | â€” |
+| T3 | S3 S4 | inline | 6f40f89 | â€” |
 | T4 | S1 S5 | inline | pending | â€” |
 | T5 | S6 | inline | pending | â€” |
 
