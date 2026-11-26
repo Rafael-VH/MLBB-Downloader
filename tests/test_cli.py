@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from typer.testing import CliRunner
 
 from mlbb_downloader import cli
@@ -57,3 +59,20 @@ def test_status_verify_reports_corruption(tmp_path) -> None:
 
     assert result.exit_code == 0
     assert "corrupted: 1" in result.output
+
+def test_check_writes_json_report(tmp_path, monkeypatch) -> None:
+    from mlbb_downloader.usecases.engine import CheckReport
+
+    monkeypatch.setattr(cli, "check_heroes", lambda *a, **k: CheckReport(unchanged=1))
+    monkeypatch.setattr(cli, "check_academy", lambda *a, **k: CheckReport(unchanged=2))
+    monkeypatch.setattr(cli, "check_images", lambda *a, **k: CheckReport(unchanged=3))
+
+    report = tmp_path / "report.json"
+    result = runner.invoke(cli.app, ["check", "--output", str(tmp_path), "--report", str(report)])
+
+    assert result.exit_code == 0, result.output
+    assert report.exists()
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["command"] == "check"
+    assert data["reports"]["heroes"]["unchanged"] == 1
+    assert data["reports"]["images"]["unchanged"] == 3

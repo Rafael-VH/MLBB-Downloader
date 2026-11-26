@@ -19,7 +19,7 @@ Entrada: `mlbb = mlbb_downloader.cli:app` (Typer).
 | `mlbb heroes sync` | Descarga heroes JSON; `--images` agrega imágenes |
 | `mlbb heroes check` | Compara remoto vs local (`--hero-id` opcional) |
 
-Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, `--delay`.
+Opciones: `--output/-o`, `--hero-id`, `--limit`, `--force`, `--images` (sync), `--report`, `--base-url`, `--delay`.
 
 ### Academy
 
@@ -28,7 +28,7 @@ Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, 
 | `mlbb academy sync` | Descarga academy; `--images` agrega imágenes |
 | `mlbb academy check` | Compara remoto vs local |
 
-Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, `--delay`.
+Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--report`, `--base-url`, `--delay`.
 
 ### Images
 
@@ -37,7 +37,7 @@ Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, 
 | `mlbb images sync` | Descarga imágenes descubiertas en JSON locales |
 | `mlbb images check` | Verifica integridad local; con `--local-only` no descarga remoto |
 
-Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--base-url`, `--delay`.
+Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--report`, `--base-url`, `--delay`.
 
 ### Addon
 
@@ -58,6 +58,6 @@ Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--base-url`,
 
 - `--name <name>` para heroes (hoy existe `--hero-id`).
 - `images check --local-only` (rehash disco, sin fetch remoto).
-- `sync --report json|md` o `--report-file`.
+- `--report-file` con formato explícito (hoy `--report` infiere por extensión).
 - `--verbose/--quiet` y salida JSON machine-readable.
 - Progreso en vivo (útil también para GUI/logs).

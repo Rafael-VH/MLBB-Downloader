@@ -34,7 +34,7 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 
 5. ~~**`images check --local-only`**~~: `images check --local-only` y `check --local-only` verifican hash local sin fetch remoto.
 6. ~~**`status` con corruptos**~~: `mlbb status --verify` rehashea archivos locales y reporta `corrupted`.
-7. **Reportes exportables**: JSON/Markdown por corrida (`reports/` o salida estable).
+7. ~~**Reportes exportables**~~: `--report <path.json|md>` en comandos sync/check.
 8. **Checkpoint de job**: `_progress.json` opcional para GUI/jobs largos; manifest ya cubre lo esencial.
 
 ### P3 — Entrega

@@ -14,6 +14,7 @@ from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.config import Settings, default_output_dir
 from mlbb_downloader.errors import ApiError
+from mlbb_downloader.reporting import write_report
 from mlbb_downloader.usecases.academy import check_academy, sync_academy
 from mlbb_downloader.usecases.addon import ip_location, win_rate_calculator
 from mlbb_downloader.usecases.heroes import check_heroes, sync_heroes
@@ -34,6 +35,9 @@ app.add_typer(images_app, name="images")
 OutputOption = Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")]
 BaseUrlOption = Annotated[str | None, typer.Option("--base-url", help="Override the API base URL.")]
 DelayOption = Annotated[float | None, typer.Option("--delay", help="Seconds between requests.")]
+ReportOption = Annotated[
+    Path | None, typer.Option("--report", help="Write run report to .json or .md file.")
+]
 
 
 def _guard(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -90,29 +94,37 @@ def heroes_sync(
     images: Annotated[bool, typer.Option("--images", help="Also download image assets.")] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Download hero data, skipping anything already stored."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = sync_heroes(client, store, hero_id=hero_id, limit=limit, force=force)
+        rep = sync_heroes(client, store, hero_id=hero_id, limit=limit, force=force)
         img_report = sync_images(client, store, force=force) if images else None
 
+    reports: dict[str, Any] = {"heroes": rep}
+    if img_report is not None:
+        reports["images"] = img_report
+    if report:
+        write_report(report, "heroes-sync", reports)
+        typer.echo(f"report: {report}")
+
     typer.echo(
-        f"downloaded={report.downloaded} skipped={report.skipped} "
-        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        f"downloaded={rep.downloaded} skipped={rep.skipped} "
+        f"failed={len(rep.failed)} elapsed={rep.elapsed:.1f}s"
     )
     if img_report is not None:
         typer.echo(
             f"images: downloaded={img_report.downloaded} skipped={img_report.skipped} "
             f"failed={len(img_report.failed)} elapsed={img_report.elapsed:.1f}s"
         )
-    for failure in report.failed[:10]:
+    for failure in rep.failed[:10]:
         typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
     if img_report is not None:
         for failure in img_report.failed[:10]:
             typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
 
-    if report.failed or (img_report and img_report.failed):
+    if rep.failed or (img_report and img_report.failed):
         raise typer.Exit(code=1)
 
 
@@ -125,23 +137,28 @@ def heroes_check(
     ] = None,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Compare the remote data with the local manifest without writing anything."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_heroes(client, store, hero_id=hero_id)
+        rep = check_heroes(client, store, hero_id=hero_id)
+
+    if report:
+        write_report(report, "heroes-check", {"heroes": rep})
+        typer.echo(f"report: {report}")
 
     typer.echo(
-        f"unchanged={report.unchanged} changed={len(report.changed)} "
-        f"new={len(report.new)} missing={len(report.missing)} "
-        f"corrupted={len(report.corrupted)} not_downloaded={report.not_downloaded} "
-        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        f"unchanged={rep.unchanged} changed={len(rep.changed)} "
+        f"new={len(rep.new)} missing={len(rep.missing)} "
+        f"corrupted={len(rep.corrupted)} not_downloaded={rep.not_downloaded} "
+        f"failed={len(rep.failed)} elapsed={rep.elapsed:.1f}s"
     )
     groups = (
-        ("CHANGED", report.changed),
-        ("NEW", report.new),
-        ("MISSING", report.missing),
-        ("CORRUPTED", report.corrupted),
+        ("CHANGED", rep.changed),
+        ("NEW", rep.new),
+        ("MISSING", rep.missing),
+        ("CORRUPTED", rep.corrupted),
     )
     for label, items in groups:
         for item in items[:10]:
@@ -159,32 +176,40 @@ def academy_sync(
     images: Annotated[bool, typer.Option("--images", help="Also download image assets.")] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Download academy game data, skipping anything already stored."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = sync_academy(client, store, limit=limit, force=force)
+        rep = sync_academy(client, store, limit=limit, force=force)
         img_report = sync_images(client, store, force=force) if images else None
 
+    reports: dict[str, Any] = {"academy": rep}
+    if img_report is not None:
+        reports["images"] = img_report
+    if report:
+        write_report(report, "academy-sync", reports)
+        typer.echo(f"report: {report}")
+
     typer.echo(
-        f"downloaded={report.downloaded} skipped={report.skipped} "
-        f"failed={len(report.failed)} unavailable={len(report.unavailable)} "
-        f"elapsed={report.elapsed:.1f}s"
+        f"downloaded={rep.downloaded} skipped={rep.skipped} "
+        f"failed={len(rep.failed)} unavailable={len(rep.unavailable)} "
+        f"elapsed={rep.elapsed:.1f}s"
     )
     if img_report is not None:
         typer.echo(
             f"images: downloaded={img_report.downloaded} skipped={img_report.skipped} "
             f"failed={len(img_report.failed)} elapsed={img_report.elapsed:.1f}s"
         )
-    for failure in report.failed[:10]:
+    for failure in rep.failed[:10]:
         typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
-    for failure in report.unavailable[:5]:
+    for failure in rep.unavailable[:5]:
         typer.echo(f"  UNAVAILABLE {failure.endpoint}: {failure.error}", err=True)
     if img_report is not None:
         for failure in img_report.failed[:10]:
             typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
 
-    if report.failed or (img_report and img_report.failed):
+    if rep.failed or (img_report and img_report.failed):
         raise typer.Exit(code=1)
 
 
@@ -194,23 +219,28 @@ def academy_check(
     output: OutputOption = None,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Compare remote academy data with the local manifest without writing anything."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_academy(client, store)
+        rep = check_academy(client, store)
+
+    if report:
+        write_report(report, "academy-check", {"academy": rep})
+        typer.echo(f"report: {report}")
 
     typer.echo(
-        f"unchanged={report.unchanged} changed={len(report.changed)} "
-        f"new={len(report.new)} missing={len(report.missing)} "
-        f"corrupted={len(report.corrupted)} not_downloaded={report.not_downloaded} "
-        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        f"unchanged={rep.unchanged} changed={len(rep.changed)} "
+        f"new={len(rep.new)} missing={len(rep.missing)} "
+        f"corrupted={len(rep.corrupted)} not_downloaded={rep.not_downloaded} "
+        f"failed={len(rep.failed)} elapsed={rep.elapsed:.1f}s"
     )
     groups = (
-        ("CHANGED", report.changed),
-        ("NEW", report.new),
-        ("MISSING", report.missing),
-        ("CORRUPTED", report.corrupted),
+        ("CHANGED", rep.changed),
+        ("NEW", rep.new),
+        ("MISSING", rep.missing),
+        ("CORRUPTED", rep.corrupted),
     )
     for label, items in groups:
         for item in items[:10]:
@@ -263,19 +293,24 @@ def images_sync(
     force: Annotated[bool, typer.Option("--force", help="Re-download all images.")] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Download image assets discovered in locally stored JSON artifacts."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = sync_images(client, store, force=force)
+        rep = sync_images(client, store, force=force)
+
+    if report:
+        write_report(report, "images-sync", {"images": rep})
+        typer.echo(f"report: {report}")
 
     typer.echo(
-        f"downloaded={report.downloaded} skipped={report.skipped} "
-        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        f"downloaded={rep.downloaded} skipped={rep.skipped} "
+        f"failed={len(rep.failed)} elapsed={rep.elapsed:.1f}s"
     )
-    for failure in report.failed[:10]:
+    for failure in rep.failed[:10]:
         typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
-    if report.failed:
+    if rep.failed:
         raise typer.Exit(code=1)
 
 
@@ -288,23 +323,28 @@ def images_check(
     ] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Check local image presence and optionally compare remote hashes."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_images(client, store, local_only=local_only)
+        rep = check_images(client, store, local_only=local_only)
+
+    if report:
+        write_report(report, "images-check", {"images": rep})
+        typer.echo(f"report: {report}")
 
     typer.echo(
-        f"unchanged={report.unchanged} changed={len(report.changed)} "
-        f"new={len(report.new)} missing={len(report.missing)} "
-        f"corrupted={len(report.corrupted)} failed={len(report.failed)} "
-        f"elapsed={report.elapsed:.1f}s"
+        f"unchanged={rep.unchanged} changed={len(rep.changed)} "
+        f"new={len(rep.new)} missing={len(rep.missing)} "
+        f"corrupted={len(rep.corrupted)} failed={len(rep.failed)} "
+        f"elapsed={rep.elapsed:.1f}s"
     )
     groups = (
-        ("CHANGED", report.changed),
-        ("NEW", report.new),
-        ("MISSING", report.missing),
-        ("CORRUPTED", report.corrupted),
+        ("CHANGED", rep.changed),
+        ("NEW", rep.new),
+        ("MISSING", rep.missing),
+        ("CORRUPTED", rep.corrupted),
     )
     for label, items in groups:
         for item in items[:10]:
@@ -321,6 +361,7 @@ def sync(
     ] = True,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Download all public data: heroes, academy, and image assets."""
     _, client, store = _build(output, base_url, delay)
@@ -328,6 +369,13 @@ def sync(
         heroes = sync_heroes(client, store, force=force)
         academy = sync_academy(client, store, force=force)
         img = sync_images(client, store, force=force) if images else None
+
+    reports: dict[str, Any] = {"heroes": heroes, "academy": academy}
+    if img is not None:
+        reports["images"] = img
+    if report:
+        write_report(report, "sync", reports)
+        typer.echo(f"report:   {report}")
 
     typer.echo(
         f"heroes:   downloaded={heroes.downloaded} skipped={heroes.skipped} "
@@ -343,8 +391,8 @@ def sync(
             f"images:   downloaded={img.downloaded} skipped={img.skipped} "
             f"failed={len(img.failed)} elapsed={img.elapsed:.1f}s"
         )
-    for label, report in (("heroes", heroes), ("academy", academy)):
-        for failure in report.failed[:10]:
+    for label, rep in (("heroes", heroes), ("academy", academy)):
+        for failure in rep.failed[:10]:
             typer.echo(f"  FAILED [{label}] {failure.endpoint}: {failure.error}", err=True)
     for failure in academy.unavailable[:5]:
         typer.echo(f"  UNAVAILABLE [academy] {failure.endpoint}: {failure.error}", err=True)
@@ -369,6 +417,7 @@ def check(
     ] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
+    report: ReportOption = None,
 ) -> None:
     """Check all public data against local artifacts without writing anything."""
     _, client, store = _build(output, base_url, delay)
@@ -377,30 +426,37 @@ def check(
         academy = check_academy(client, store)
         img = check_images(client, store, local_only=local_only) if images else None
 
-    def line(label: str, report: Any) -> str:
+    reports: dict[str, Any] = {"heroes": heroes, "academy": academy}
+    if img is not None:
+        reports["images"] = img
+    if report:
+        write_report(report, "check", reports)
+        typer.echo(f"report:   {report}")
+
+    def line(label: str, rep: Any) -> str:
         base = (
-            f"{label:<8} unchanged={report.unchanged} changed={len(report.changed)} "
-            f"new={len(report.new)} missing={len(report.missing)} "
-            f"corrupted={len(report.corrupted)}"
+            f"{label:<8} unchanged={rep.unchanged} changed={len(rep.changed)} "
+            f"new={len(rep.new)} missing={len(rep.missing)} "
+            f"corrupted={len(rep.corrupted)}"
         )
-        nd = getattr(report, "not_downloaded", None)
+        nd = getattr(rep, "not_downloaded", None)
         if nd is not None:
             base += f" not_downloaded={nd}"
-        base += f" failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        base += f" failed={len(rep.failed)} elapsed={rep.elapsed:.1f}s"
         return base
 
     typer.echo(line("heroes:", heroes))
     typer.echo(line("academy:", academy))
     if img is not None:
         typer.echo(line("images:", img))
-    for label, report in (("heroes", heroes), ("academy", academy), ("images", img)):
-        if report is None:
+    for label, rep in (("heroes", heroes), ("academy", academy), ("images", img)):
+        if rep is None:
             continue
         for name, items in (
-            ("CHANGED", report.changed),
-            ("NEW", report.new),
-            ("MISSING", report.missing),
-            ("CORRUPTED", report.corrupted),
+            ("CHANGED", rep.changed),
+            ("NEW", rep.new),
+            ("MISSING", rep.missing),
+            ("CORRUPTED", rep.corrupted),
         ):
             for item in items[:10]:
                 typer.echo(f"  {name} [{label}] {item}")
