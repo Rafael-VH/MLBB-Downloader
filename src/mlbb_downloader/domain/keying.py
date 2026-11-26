@@ -1,4 +1,4 @@
-"""Entity identity extraction for raw upstream records.
+"""Stable artifact keys and entity identity extraction.
 
 The API is a thin proxy over game tables, so the same entity exposes its id and
 name at different nesting levels depending on the endpoint. These helpers
@@ -8,8 +8,18 @@ centralise the defensive extraction so every domain reads identity the same way.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
-from mlbb_downloader.storage.store import DataStore
+from mlbb_downloader.domain.manifest import Manifest
+
+
+def item_key(endpoint: str, params: dict[str, Any] | None = None) -> str:
+    """Stable identity for a logical artifact, independent of parameter order."""
+    clean = {key: value for key, value in (params or {}).items() if value is not None}
+    if not clean:
+        return endpoint
+    query = urlencode(sorted(clean.items(), key=lambda pair: pair[0]))
+    return f"{endpoint}?{query}"
 
 
 def hero_identity(record: dict[str, Any]) -> tuple[int | None, str]:
@@ -32,13 +42,13 @@ def hero_identity(record: dict[str, Any]) -> tuple[int | None, str]:
 
 
 def local_entity_ids(
-    store: DataStore,
+    manifest: Manifest,
     prefix: str,
     param: str = "hero_id",
 ) -> set[int]:
     """Entity ids for which at least one artifact exists under ``prefix``."""
     return {
         value
-        for item in store.manifest.items.values()
+        for item in manifest.items.values()
         if item.endpoint.startswith(prefix) and isinstance((value := item.params.get(param)), int)
     }

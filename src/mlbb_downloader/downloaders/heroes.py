@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 
 from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.domain.keying import hero_identity, local_entity_ids
 from mlbb_downloader.downloaders.engine import (
     Artifact,
     CheckReport,
@@ -16,7 +17,6 @@ from mlbb_downloader.downloaders.engine import (
     sync_many,
     sync_one,
 )
-from mlbb_downloader.downloaders.identity import hero_identity, local_entity_ids
 from mlbb_downloader.storage.store import DataStore
 from mlbb_downloader.utils.slug import sanitize_component
 
@@ -111,7 +111,7 @@ def check_heroes(
 
     index_records = check_one(client, store, INDEX, report, page_size=page_size) or []
 
-    local_ids = local_entity_ids(store, INDEX_ENDPOINT)
+    local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
     for hero in index_records:
         hero_id, _ = hero_identity(hero)
         if hero_id not in local_ids:
