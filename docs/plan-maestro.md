@@ -39,8 +39,8 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 
 ### P3 — Entrega
 
-9. **Compatibilidad GUI**: verificar PySide6 en Python 3.14.0; si falla, definir extra `gui` con pin de versión.
-10. **GUI PySide6**: dashboard, tools por dominio, workers, progreso, cancel/pause, logs, settings.
+9. ~~**Compatibilidad GUI**~~: PySide6 6.12.0 (`cp310-abi3-win_amd64`) instalado en Python 3.14.0; extra `gui` definido en `pyproject.toml`.
+10. **GUI PySide6** (en progreso): esqueleto MVP con ventana principal, selector output, sync/check, progreso por `_progress.json`, log, cancelación cooperativa y worker QThreadPool. Faltan settings persistentes, polish UX, pause/retry fino y cobertura GUI.
 11. **Packaging**: PyInstaller (`--windowed --onefile`), assets Qt, app data en `%APPDATA%/MLBBDownloader`.
 12. **CI/Release**: lint/test/smoke build; release en tag `v*` con checksums.
 13. **Legal/repo hygiene**: `LICENSE` MIT, `CHANGELOG.md`, disclaimer/atribución visible.

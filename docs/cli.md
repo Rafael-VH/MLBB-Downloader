@@ -54,6 +54,15 @@ Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--report`, `
 - **Imágenes**: dependen de JSON ya presentes en el store.
 - **Check**: reporta `unchanged/changed/new/missing/corrupted/not_downloaded/failed`.
 
+## GUI (M3 MVP)
+
+```bash
+uv sync --extra gui
+uv run mlbb-gui
+```
+
+Esqueleto MVP: output selector, Sync/Check all, Images/local-only, progreso desde `_progress.json`, log, cancelación cooperativa.
+
 ## Mejoras CLI pendientes
 
 - `--name <name>` para heroes (hoy existe `--hero-id`).

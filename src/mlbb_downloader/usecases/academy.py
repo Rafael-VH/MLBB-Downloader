@@ -14,6 +14,7 @@ decision.
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -190,6 +191,7 @@ def sync_academy(
     force: bool = False,
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> SyncReport:
     """Download academy game data, skipping anything already stored."""
     started = time.monotonic()
@@ -211,6 +213,7 @@ def sync_academy(
         force=force,
         page_size=page_size,
         progress=progress,
+        cancel=cancel,
     )
 
     identities = _identities(catalog_records, limit)
@@ -229,6 +232,7 @@ def sync_academy(
         force=force,
         page_size=page_size,
         progress=progress,
+        cancel=cancel,
     )
 
     lane_tasks: list[Artifact] = []
@@ -247,6 +251,7 @@ def sync_academy(
             force=force,
             page_size=page_size,
             progress=progress,
+            cancel=cancel,
         )
 
     store.flush()
@@ -260,6 +265,7 @@ def check_academy(
     *,
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> CheckReport:
     """Compare remote academy data against local artifacts.
 
@@ -289,6 +295,7 @@ def check_academy(
         skip={CATALOG.key},
         page_size=page_size,
         progress=progress,
+        cancel=cancel,
     )
 
     report.elapsed = time.monotonic() - started

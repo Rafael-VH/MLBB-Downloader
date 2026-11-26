@@ -17,6 +17,7 @@ Design notes:
 from __future__ import annotations
 
 import hashlib
+import threading
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore, serialize_json
 from mlbb_downloader.domain.keying import item_key
-from mlbb_downloader.errors import ApiError, IncompletePageError
+from mlbb_downloader.errors import ApiError, IncompletePageError, JobCancelledError
 
 DEFAULT_FLUSH_EVERY = 25
 
@@ -210,10 +211,14 @@ def sync_many(
     page_size: int | None = None,
     flush_every: int = DEFAULT_FLUSH_EVERY,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> SyncReport:
     report = report if report is not None else SyncReport()
     started = time.monotonic()
     for index, artifact in enumerate(artifacts, start=1):
+        if cancel is not None and cancel.is_set():
+            store.flush()
+            raise JobCancelledError("sync cancelled")
         _sync(client, store, artifact, report, force=force, page_size=page_size)
         if progress is not None:
             progress.tick(
@@ -255,10 +260,13 @@ def check_many(
     *,
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> CheckReport:
     report = report if report is not None else CheckReport()
     started = time.monotonic()
     for artifact in artifacts:
+        if cancel is not None and cancel.is_set():
+            raise JobCancelledError("check cancelled")
         _check(client, store, artifact, report, page_size=page_size)
         if progress is not None:
             progress.tick(
@@ -285,6 +293,7 @@ def check_manifest(
     skip: frozenset[str] | set[str] = frozenset(),
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> CheckReport:
     """Re-fetch and compare exactly the artifacts recorded in the manifest."""
     report = report if report is not None else CheckReport()
@@ -295,6 +304,8 @@ def check_manifest(
         item = store.manifest.items[key]
         if prefix is not None and not item.endpoint.startswith(prefix):
             continue
+        if cancel is not None and cancel.is_set():
+            raise JobCancelledError("check cancelled")
         artifact = Artifact(
             endpoint=item.endpoint,
             relative_path=item.path,

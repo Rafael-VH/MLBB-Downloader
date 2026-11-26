@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -83,6 +84,7 @@ def sync_heroes(
     force: bool = False,
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> SyncReport:
     """Download hero data, skipping anything already stored."""
     started = time.monotonic()
@@ -102,6 +104,7 @@ def sync_heroes(
             force=force,
             page_size=page_size,
             progress=progress,
+            cancel=cancel,
         )
 
     heroes = _select_heroes(index_records, hero_id=hero_id, limit=limit)
@@ -118,6 +121,7 @@ def sync_heroes(
         force=force,
         page_size=page_size,
         progress=progress,
+        cancel=cancel,
     )
 
     report.elapsed = time.monotonic() - started
@@ -131,6 +135,7 @@ def check_heroes(
     hero_id: int | None = None,
     page_size: int | None = None,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> CheckReport:
     """Compare remote data against local artifacts.
 
@@ -146,7 +151,15 @@ def check_heroes(
     if hero_id is None:
         if progress is not None:
             progress.set_phase("heroes:collections", total=len(COLLECTIONS))
-        check_many(client, store, COLLECTIONS, report, page_size=page_size, progress=progress)
+        check_many(
+            client,
+            store,
+            COLLECTIONS,
+            report,
+            page_size=page_size,
+            progress=progress,
+            cancel=cancel,
+        )
 
         local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
         for hero in index_records:
@@ -164,6 +177,7 @@ def check_heroes(
             skip={INDEX.key, *(a.key for a in COLLECTIONS)},
             page_size=page_size,
             progress=progress,
+            cancel=cancel,
         )
     else:
         heroes = _select_heroes(index_records, hero_id=hero_id, limit=None)
@@ -172,7 +186,9 @@ def check_heroes(
         )
         if progress is not None:
             progress.set_phase("heroes:details", total=len(artifacts))
-        check_many(client, store, artifacts, report, page_size=page_size, progress=progress)
+        check_many(
+            client, store, artifacts, report, page_size=page_size, progress=progress, cancel=cancel
+        )
 
     report.elapsed = time.monotonic() - started
     return report

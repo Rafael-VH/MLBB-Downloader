@@ -7,6 +7,7 @@ image extraction pure and makes image downloads resumable through the manifest.
 from __future__ import annotations
 
 import hashlib
+import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,7 +24,7 @@ from mlbb_downloader.domain.images import (
     extract_index_images,
     extract_wallpaper_images,
 )
-from mlbb_downloader.errors import ApiError
+from mlbb_downloader.errors import ApiError, JobCancelledError
 from mlbb_downloader.usecases.engine import CheckReport, Failure, SyncReport
 
 HEROES_PREFIX = "/heroes"
@@ -91,6 +92,7 @@ def sync_images(
     force: bool = False,
     flush_every: int = 25,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> SyncReport:
     started = time.monotonic()
     report = SyncReport()
@@ -99,6 +101,9 @@ def sync_images(
         progress.set_phase("images:sync", total=len(assets))
 
     for index, asset in enumerate(assets, start=1):
+        if cancel is not None and cancel.is_set():
+            store.flush()
+            raise JobCancelledError("images sync cancelled")
         if not force and store.exists(asset.key):
             report.skipped += 1
             if progress is not None:
@@ -159,6 +164,7 @@ def check_images(
     *,
     local_only: bool = False,
     progress: ProgressTracker | None = None,
+    cancel: threading.Event | None = None,
 ) -> CheckReport:
     """Check image presence/integrity.
 
@@ -172,6 +178,8 @@ def check_images(
         progress.set_phase("images:check", total=len(assets))
 
     for asset in assets:
+        if cancel is not None and cancel.is_set():
+            raise JobCancelledError("images check cancelled")
         item = store.manifest.items.get(asset.key)
         if item is None:
             report.new.append(asset.key)

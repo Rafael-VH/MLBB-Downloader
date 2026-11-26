@@ -32,3 +32,7 @@ class IncompletePageError(Exception):
         self.endpoint = endpoint
         self.expected = expected
         self.received = received
+
+
+class JobCancelledError(Exception):
+    """The user cancelled a running job."""
