@@ -39,6 +39,20 @@ class DataStore:
             return False
         return (self.root / item.path).exists()
 
+    def load_json(self, key: str) -> dict[str, Any] | None:
+        """Read a stored artifact back into memory, if it is still on disk."""
+        item = self.manifest.items.get(key)
+        if item is None:
+            return None
+        target = self.root / item.path
+        if not target.exists():
+            return None
+        try:
+            payload = json.loads(target.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def sha256(self, key: str) -> str | None:
         item = self.manifest.items.get(key)
         return item.sha256 if item else None
