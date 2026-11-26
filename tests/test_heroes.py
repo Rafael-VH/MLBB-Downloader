@@ -131,3 +131,15 @@ def test_check_does_not_fetch_never_downloaded_heroes(tmp_path: Path) -> None:
     assert "/api/heroes/wallpapers" in calls
     assert report.not_downloaded == 1
     assert "/heroes" in report.new
+
+
+def test_sync_single_hero_id(tmp_path: Path) -> None:
+    state = {"revision": 1}
+    store = DataStore(tmp_path, base_url="https://api.test/api")
+
+    with make_client(make_handler(state)) as client:
+        report = sync_heroes(client, store, hero_id=1)
+
+    assert report.downloaded == 1 + len(HERO_SUBRESOURCES)
+    assert report.failed == []
+    assert report.skipped == 0

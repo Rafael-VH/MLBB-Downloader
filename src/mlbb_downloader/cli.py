@@ -45,6 +45,9 @@ def _guard(func: Callable[..., Any]) -> Callable[..., Any]:
         except ApiError as exc:
             typer.secho(f"error: {exc.message}", err=True, fg=typer.colors.RED)
             raise typer.Exit(code=1) from None
+        except ValueError as exc:
+            typer.secho(f"error: {exc}", err=True, fg=typer.colors.RED)
+            raise typer.Exit(code=1) from None
 
     return wrapper
 
@@ -76,6 +79,9 @@ def _build(
 @_guard
 def heroes_sync(
     output: OutputOption = None,
+    hero_id: Annotated[
+        int | None, typer.Option("--hero-id", help="Sync only this hero ID.")
+    ] = None,
     limit: Annotated[
         int | None, typer.Option("--limit", help="Only sync the first N heroes.")
     ] = None,
@@ -87,7 +93,7 @@ def heroes_sync(
     """Download hero data, skipping anything already stored."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = sync_heroes(client, store, limit=limit, force=force)
+        report = sync_heroes(client, store, hero_id=hero_id, limit=limit, force=force)
         img_report = sync_images(client, store, force=force) if images else None
 
     typer.echo(
@@ -113,13 +119,16 @@ def heroes_sync(
 @_guard
 def heroes_check(
     output: OutputOption = None,
+    hero_id: Annotated[
+        int | None, typer.Option("--hero-id", help="Check only this hero ID.")
+    ] = None,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
     """Compare the remote data with the local manifest without writing anything."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_heroes(client, store)
+        report = check_heroes(client, store, hero_id=hero_id)
 
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "

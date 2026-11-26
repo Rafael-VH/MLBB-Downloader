@@ -17,7 +17,7 @@ Entrada: `mlbb = mlbb_downloader.cli:app` (Typer).
 | Comando | Descripción |
 |---|---|
 | `mlbb heroes sync` | Descarga heroes JSON; `--images` agrega imágenes |
-| `mlbb heroes check` | Compara remoto vs local |
+| `mlbb heroes check` | Compara remoto vs local (`--hero-id` opcional) |
 
 Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, `--delay`.
 
@@ -56,7 +56,7 @@ Opciones: `--output/-o`, `--force` (sync), `--base-url`, `--delay`.
 
 ## Mejoras CLI pendientes
 
-- `heroes sync --hero-id <id>` / `--name <name>`.
+- `--name <name>` para heroes (hoy existe `--hero-id`).
 - `images check --local-only` (rehash disco, sin fetch remoto).
 - `sync --report json|md` o `--report-file`.
 - `--verbose/--quiet` y salida JSON machine-readable.

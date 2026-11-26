@@ -28,7 +28,7 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 1. ~~**Heroes faltantes**~~: `/heroes/rank`, `/heroes/positions`, `/heroes/wallpapers` (galería) implementados.
 2. ~~**Registry completo heroes**~~: HERO_SUBRESOURCES y colecciones registradas en `domain/registry.py`/`DESCRIPTORS`.
 3. **Registry validado contra OpenAPI**: script de verificación/generación desde `openapi.json` (catálogo hand-written pero comprobado).
-4. **CLI por entidad**: `heroes sync --hero-id <id>` / selección puntual.
+4. ~~**CLI por entidad**~~: `heroes sync/check --hero-id <id>` implementado.
 
 ### P2 — Operación y confiabilidad
 

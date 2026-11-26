@@ -74,6 +74,7 @@ def sync_heroes(
     client: ArenaClient,
     store: DataStore,
     *,
+    hero_id: int | None = None,
     limit: int | None = None,
     force: bool = False,
     page_size: int | None = None,
@@ -83,9 +84,10 @@ def sync_heroes(
     report = SyncReport()
 
     index_records = sync_one(client, store, INDEX, report, force=force, page_size=page_size) or []
-    sync_many(client, store, COLLECTIONS, report, force=force, page_size=page_size)
+    if hero_id is None:
+        sync_many(client, store, COLLECTIONS, report, force=force, page_size=page_size)
 
-    heroes = index_records if limit is None else index_records[:limit]
+    heroes = _select_heroes(index_records, hero_id=hero_id, limit=limit)
     artifacts = (
         artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
     )
@@ -106,6 +108,7 @@ def check_heroes(
     client: ArenaClient,
     store: DataStore,
     *,
+    hero_id: int | None = None,
     page_size: int | None = None,
 ) -> CheckReport:
     """Compare remote data against local artifacts.
@@ -117,22 +120,33 @@ def check_heroes(
     report = CheckReport()
 
     index_records = check_one(client, store, INDEX, report, page_size=page_size) or []
-    check_many(client, store, COLLECTIONS, report, page_size=page_size)
+    if hero_id is None:
+        check_many(client, store, COLLECTIONS, report, page_size=page_size)
 
-    local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
-    for hero in index_records:
-        hero_id, _ = hero_identity(hero)
-        if hero_id not in local_ids:
-            report.not_downloaded += 1
+        local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
+        for hero in index_records:
+            hid, _ = hero_identity(hero)
+            if hid not in local_ids:
+                report.not_downloaded += 1
 
-    check_manifest(
-        client,
-        store,
-        report,
-        prefix=INDEX_ENDPOINT,
-        skip={INDEX.key, *(a.key for a in COLLECTIONS)},
-        page_size=page_size,
-    )
+        check_manifest(
+            client,
+            store,
+            report,
+            prefix=INDEX_ENDPOINT,
+            skip={INDEX.key, *(a.key for a in COLLECTIONS)},
+            page_size=page_size,
+        )
+    else:
+        heroes = _select_heroes(index_records, hero_id=hero_id, limit=None)
+        for hero in heroes:
+            check_many(
+                client,
+                store,
+                hero_artifacts(*_identity_fields(hero)),
+                report,
+                page_size=page_size,
+            )
 
     report.elapsed = time.monotonic() - started
     return report
@@ -141,3 +155,17 @@ def check_heroes(
 def _identity_fields(record: dict) -> tuple[int | None, str]:
     hero_id, name = hero_identity(record)
     return hero_id, sanitize_component(name)
+
+
+def _select_heroes(
+    index_records: list[dict],
+    *,
+    hero_id: int | None,
+    limit: int | None,
+) -> list[dict]:
+    if hero_id is None:
+        return index_records if limit is None else index_records[:limit]
+    selected = [h for h in index_records if hero_identity(h)[0] == hero_id]
+    if not selected:
+        raise ValueError(f"hero_id {hero_id} not found in heroes index")
+    return selected
