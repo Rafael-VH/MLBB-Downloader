@@ -58,11 +58,102 @@ HEROES_INDEX = EndpointSpec(
     params=("size", "index", "lang"),
 )
 
+HEROES_RANK = EndpointSpec(
+    id="heroes.rank",
+    path="/heroes/rank",
+    params=("size", "index", "lang", "days", "rank", "sort_field", "sort_order"),
+    note="ranked hero list; upstream can be transiently unavailable",
+)
+
+HEROES_POSITIONS = EndpointSpec(
+    id="heroes.positions",
+    path="/heroes/positions",
+    params=("size", "index", "lang", "role", "lane"),
+    note="hero position/filter list",
+)
+
+HEROES_WALLPAPERS = EndpointSpec(
+    id="heroes.wallpapers",
+    path="/heroes/wallpapers",
+    params=("size", "index", "lang"),
+    note="global wallpapers gallery",
+)
+
+HERO_DETAIL = EndpointSpec(
+    id="heroes.detail",
+    path="/heroes/{hero_id}",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
 HERO_STATS = EndpointSpec(
     id="heroes.stats",
     path="/heroes/{hero_id}/stats",
     kind="per_entity",
     params=("hero_identifier", "rank", "size", "index", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_SKILL_COMBOS = EndpointSpec(
+    id="heroes.skill-combos",
+    path="/heroes/{hero_id}/skill-combos",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_TRENDS = EndpointSpec(
+    id="heroes.trends",
+    path="/heroes/{hero_id}/trends",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_RELATIONS = EndpointSpec(
+    id="heroes.relations",
+    path="/heroes/{hero_id}/relations",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_COUNTERS = EndpointSpec(
+    id="heroes.counters",
+    path="/heroes/{hero_id}/counters",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_COMPATIBILITY = EndpointSpec(
+    id="heroes.compatibility",
+    path="/heroes/{hero_id}/compatibility",
+    kind="per_entity",
+    params=("hero_id", "lang"),
+    enumerated_by="hero_id",
+    id_kind="numeric",
+    total_expected=1,
+)
+
+HERO_WALLPAPERS = EndpointSpec(
+    id="heroes.wallpapers",
+    path="/heroes/{hero_id}/wallpapers",
+    kind="per_entity",
+    params=("hero_id", "lang"),
     enumerated_by="hero_id",
     id_kind="numeric",
     total_expected=1,
@@ -310,6 +401,21 @@ ACADEMY_ENDPOINTS: tuple[EndpointSpec, ...] = (
     ACADEMY_HERO_RATINGS_SUBJECT,
 )
 
+HEROES_ENDPOINTS: tuple[EndpointSpec, ...] = (
+    HEROES_INDEX,
+    HEROES_RANK,
+    HEROES_POSITIONS,
+    HEROES_WALLPAPERS,
+    HERO_DETAIL,
+    HERO_STATS,
+    HERO_SKILL_COMBOS,
+    HERO_TRENDS,
+    HERO_RELATIONS,
+    HERO_COUNTERS,
+    HERO_COMPATIBILITY,
+    HERO_WALLPAPERS,
+)
+
 DESCRIPTORS: dict[str, EndpointSpec] = {
-    spec.id: spec for spec in (HEROES_INDEX, HERO_STATS, *ACADEMY_ENDPOINTS)
+    spec.id: spec for spec in (*HEROES_ENDPOINTS, *ACADEMY_ENDPOINTS)
 }

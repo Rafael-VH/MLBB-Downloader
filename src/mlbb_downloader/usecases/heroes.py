@@ -15,6 +15,7 @@ from mlbb_downloader.usecases.engine import (
     Failure,
     SyncReport,
     check_manifest,
+    check_many,
     check_one,
     sync_many,
     sync_one,
@@ -33,6 +34,11 @@ __all__ = [
 INDEX_ENDPOINT = "/heroes"
 INDEX_RELATIVE_PATH = "heroes/index.json"
 INDEX = Artifact(INDEX_ENDPOINT, INDEX_RELATIVE_PATH)
+
+RANK = Artifact("/heroes/rank", "heroes/rank.json", optional=True)
+POSITIONS = Artifact("/heroes/positions", "heroes/positions.json")
+WALLPAPERS_GALLERY = Artifact("/heroes/wallpapers", "heroes/wallpapers-gallery.json")
+COLLECTIONS: tuple[Artifact, ...] = (RANK, POSITIONS, WALLPAPERS_GALLERY)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,8 +83,9 @@ def sync_heroes(
     report = SyncReport()
 
     index_records = sync_one(client, store, INDEX, report, force=force, page_size=page_size) or []
-    heroes = index_records if limit is None else index_records[:limit]
+    sync_many(client, store, COLLECTIONS, report, force=force, page_size=page_size)
 
+    heroes = index_records if limit is None else index_records[:limit]
     artifacts = (
         artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
     )
@@ -110,6 +117,7 @@ def check_heroes(
     report = CheckReport()
 
     index_records = check_one(client, store, INDEX, report, page_size=page_size) or []
+    check_many(client, store, COLLECTIONS, report, page_size=page_size)
 
     local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
     for hero in index_records:
@@ -122,7 +130,7 @@ def check_heroes(
         store,
         report,
         prefix=INDEX_ENDPOINT,
-        skip={INDEX.key},
+        skip={INDEX.key, *(a.key for a in COLLECTIONS)},
         page_size=page_size,
     )
 

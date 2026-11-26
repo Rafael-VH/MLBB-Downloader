@@ -15,9 +15,9 @@ Fuente: `https://arena.rone.dev/api` + comportamiento observado en vivo. Esports
 | `GET /heroes/{id}/counters` | ✅ | subrecurso |
 | `GET /heroes/{id}/compatibility` | ✅ | subrecurso |
 | `GET /heroes/{id}/wallpapers` | ✅ | JSON + descarga de imágenes |
-| `GET /heroes/rank` | ❌ | pendiente |
-| `GET /heroes/positions` | ❌ | pendiente |
-| `GET /heroes/wallpapers` | ❌ | galería global pendiente |
+| `GET /heroes/rank` | ✅ | colección; `optional` (upstream puede fallar transitoriamente) |
+| `GET /heroes/positions` | ✅ | colección |
+| `GET /heroes/wallpapers` | ✅ | galería global JSON |
 
 ## Academy
 
@@ -66,6 +66,5 @@ Fuente: `https://arena.rone.dev/api` + comportamiento observado en vivo. Esports
 
 ## Brechas de cobertura detectadas
 
-1. **Registry incompleto para heroes**: `domain/registry.py` declara `HEROES_INDEX` y `HERO_STATS`, pero la implementación real soporta más subrecursos. Faltan también rank/positions/wallpapers gallery.
-2. **No hay validación automática contra OpenAPI**: riesgo de deriva.
-3. **Cobertura de imágenes**: dirigida por campos conocidos; si la API agrega campos, hay que extender `domain/images.py` con tests.
+1. **Validación automática contra OpenAPI**: no hay script de verificación/generación; riesgo de deriva.
+2. **Cobertura de imágenes**: dirigida por campos conocidos; galería global y nuevos campos requieren extender `domain/images.py` con tests.

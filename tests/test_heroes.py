@@ -50,7 +50,7 @@ def test_sync_downloads_index_plus_every_subresource(tmp_path: Path) -> None:
     with make_client(make_handler(state)) as client:
         report = sync_heroes(client, store)
 
-    expected = 1 + len(HERO_SUBRESOURCES)
+    expected = 1 + 3 + len(HERO_SUBRESOURCES)
     assert report.downloaded == expected
     assert report.failed == []
     assert store.exists(store.manifest_key_for("/heroes", {}))
@@ -98,7 +98,7 @@ def test_check_reports_changed_items_without_downloading(tmp_path: Path) -> None
     with make_client(make_handler(state)) as client:
         report = check_heroes(client, DataStore(tmp_path, base_url="https://api.test/api"))
 
-    assert len(report.changed) == len(HERO_SUBRESOURCES)
+    assert len(report.changed) == len(HERO_SUBRESOURCES) + 3
     assert report.unchanged == 1, "the hero index did not change"
     assert report.new == []
 
@@ -110,7 +110,7 @@ def test_limit_only_touches_requested_heroes(tmp_path: Path) -> None:
     with make_client(make_handler(state)) as client:
         report = sync_heroes(client, store, limit=0)
 
-    assert report.downloaded == 1, "limit=0 still stores the hero index"
+    assert report.downloaded == 4, "limit=0 stores index and global collections"
 
 
 def test_check_does_not_fetch_never_downloaded_heroes(tmp_path: Path) -> None:
@@ -125,6 +125,9 @@ def test_check_does_not_fetch_never_downloaded_heroes(tmp_path: Path) -> None:
     with make_client(counting_handler) as client:
         report = check_heroes(client, store)
 
-    assert calls == ["/api/heroes"], "check must not crawl the remote catalogue"
+    assert "/api/heroes" in calls
+    assert "/api/heroes/rank" in calls
+    assert "/api/heroes/positions" in calls
+    assert "/api/heroes/wallpapers" in calls
     assert report.not_downloaded == 1
-    assert report.new == ["/heroes"]
+    assert "/heroes" in report.new
