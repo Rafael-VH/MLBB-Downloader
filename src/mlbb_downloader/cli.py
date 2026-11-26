@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import hashlib
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
@@ -407,21 +408,40 @@ def check(
 
 @app.command()
 @_guard
-def status(output: OutputOption = None) -> None:
+def status(
+    output: OutputOption = None,
+    verify: Annotated[
+        bool, typer.Option("--verify", help="Rehash local files to detect corruption.")
+    ] = False,
+) -> None:
     """Show what is already stored locally."""
     directory = Path(output) if output else default_output_dir()
     store = DataStore(directory)
 
-    stored = sum(1 for key in store.manifest.items if store.exists(key))
-    missing = len(store.manifest.items) - stored
+    stored = 0
+    missing = 0
+    corrupted = 0
+    for _key, item in store.manifest.items.items():
+        target = store.root / item.path
+        if not target.exists():
+            missing += 1
+            continue
+        stored += 1
+        if verify:
+            disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+            if disk_hash != item.sha256:
+                corrupted += 1
+
     size = sum(item.size for item in store.manifest.items.values())
 
-    typer.echo(f"output:   {directory}")
-    typer.echo(f"items:    {len(store.manifest.items)}")
-    typer.echo(f"on disk:  {stored}")
-    typer.echo(f"missing:  {missing}")
-    typer.echo(f"bytes:    {size}")
-    typer.echo(f"last run: {store.manifest.generated_at.isoformat()}")
+    typer.echo(f"output:    {directory}")
+    typer.echo(f"items:     {len(store.manifest.items)}")
+    typer.echo(f"on disk:   {stored}")
+    typer.echo(f"missing:   {missing}")
+    if verify:
+        typer.echo(f"corrupted: {corrupted}")
+    typer.echo(f"bytes:     {size}")
+    typer.echo(f"last run:  {store.manifest.generated_at.isoformat()}")
 
 
 if __name__ == "__main__":

@@ -38,3 +38,22 @@ def test_commands_are_registered() -> None:
     assert result.exit_code == 0
     for name in ("sync", "check", "status", "heroes", "academy", "addon", "images"):
         assert name in result.output
+
+
+def test_status_verify_reports_corruption(tmp_path) -> None:
+    from mlbb_downloader.adapters.fsstore import DataStore
+
+    store = DataStore(tmp_path, base_url="https://api.test/api")
+    store.save_json(
+        store.manifest_key_for("/heroes", {}),
+        "heroes/index.json",
+        {"ok": True},
+        endpoint="/heroes",
+    )
+    store.flush()
+    (tmp_path / "heroes" / "index.json").write_text("broken", encoding="utf-8")
+
+    result = runner.invoke(cli.app, ["status", "--output", str(tmp_path), "--verify"])
+
+    assert result.exit_code == 0
+    assert "corrupted: 1" in result.output

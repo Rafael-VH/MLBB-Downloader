@@ -10,7 +10,7 @@ Entrada: `mlbb = mlbb_downloader.cli:app` (Typer).
 |---|---|
 | `mlbb sync` | Descarga todo lo público: heroes + academy + imágenes |
 | `mlbb check` | Verifica todo lo público sin escribir |
-| `mlbb status` | Muestra estado local del manifest/output |
+| `mlbb status` | Muestra estado local; `--verify` rehashea y reporta corruptos |
 
 ### Heroes
 
