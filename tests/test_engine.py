@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import httpx
 
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore
+from mlbb_downloader.adapters.progress import ProgressTracker, progress_path
+from mlbb_downloader.errors import JobCancelledError
 from mlbb_downloader.usecases.engine import (
     Artifact,
     CheckReport,
@@ -278,3 +281,42 @@ def test_check_reports_corrupted_local_file(tmp_path: Path) -> None:
     assert report.corrupted == [artifact.key]
     assert report.changed == []
     assert report.unchanged == 0
+
+def test_sync_many_respects_cancel(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(200, json=envelope([{"path": request.url.path}], 1))
+
+    store = make_store(tmp_path)
+    artifacts = [Artifact(f"/h/{i}", f"h/{i}.json") for i in range(5)]
+    cancel = threading.Event()
+    cancel.set()
+
+    with make_client(handler) as client:
+        try:
+            sync_many(client, store, artifacts, SyncReport(), cancel=cancel)
+        except JobCancelledError:
+            pass
+        else:
+            raise AssertionError("expected JobCancelledError")
+
+    assert calls == []
+
+
+def test_sync_many_reports_progress(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=envelope([{"id": 1}], 1))
+
+    store = make_store(tmp_path)
+    tracker = ProgressTracker(progress_path(tmp_path), "sync")
+    tracker.save()
+    artifacts = [Artifact("/a", "a.json"), Artifact("/b", "b.json")]
+
+    with make_client(handler) as client:
+        report = sync_many(client, store, artifacts, SyncReport(), progress=tracker)
+
+    assert report.downloaded == 2
+    assert tracker.done == 2
+    assert tracker.current in {artifacts[0].key, artifacts[1].key}
