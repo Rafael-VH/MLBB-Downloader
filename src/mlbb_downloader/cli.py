@@ -12,6 +12,7 @@ import typer
 
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore
+from mlbb_downloader.adapters.progress import ProgressTracker, progress_path
 from mlbb_downloader.config import Settings, default_output_dir
 from mlbb_downloader.errors import ApiError
 from mlbb_downloader.reporting import write_report
@@ -97,10 +98,20 @@ def heroes_sync(
     report: ReportOption = None,
 ) -> None:
     """Download hero data, skipping anything already stored."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = sync_heroes(client, store, hero_id=hero_id, limit=limit, force=force)
-        img_report = sync_images(client, store, force=force) if images else None
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "heroes-sync")
+    tracker.save()
+    try:
+        with client:
+            rep = sync_heroes(
+                client, store, hero_id=hero_id, limit=limit, force=force, progress=tracker
+            )
+            img_report = (
+                sync_images(client, store, force=force, progress=tracker) if images else None
+            )
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     reports: dict[str, Any] = {"heroes": rep}
     if img_report is not None:
@@ -108,6 +119,7 @@ def heroes_sync(
     if report:
         write_report(report, "heroes-sync", reports)
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"downloaded": rep.downloaded, "failed": len(rep.failed)})
 
     typer.echo(
         f"downloaded={rep.downloaded} skipped={rep.skipped} "
@@ -140,13 +152,20 @@ def heroes_check(
     report: ReportOption = None,
 ) -> None:
     """Compare the remote data with the local manifest without writing anything."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = check_heroes(client, store, hero_id=hero_id)
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "heroes-check")
+    tracker.save()
+    try:
+        with client:
+            rep = check_heroes(client, store, hero_id=hero_id, progress=tracker)
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     if report:
         write_report(report, "heroes-check", {"heroes": rep})
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"unchanged": rep.unchanged, "failed": len(rep.failed)})
 
     typer.echo(
         f"unchanged={rep.unchanged} changed={len(rep.changed)} "
@@ -179,10 +198,18 @@ def academy_sync(
     report: ReportOption = None,
 ) -> None:
     """Download academy game data, skipping anything already stored."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = sync_academy(client, store, limit=limit, force=force)
-        img_report = sync_images(client, store, force=force) if images else None
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "academy-sync")
+    tracker.save()
+    try:
+        with client:
+            rep = sync_academy(client, store, limit=limit, force=force, progress=tracker)
+            img_report = (
+                sync_images(client, store, force=force, progress=tracker) if images else None
+            )
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     reports: dict[str, Any] = {"academy": rep}
     if img_report is not None:
@@ -190,6 +217,7 @@ def academy_sync(
     if report:
         write_report(report, "academy-sync", reports)
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"downloaded": rep.downloaded, "failed": len(rep.failed)})
 
     typer.echo(
         f"downloaded={rep.downloaded} skipped={rep.skipped} "
@@ -222,13 +250,20 @@ def academy_check(
     report: ReportOption = None,
 ) -> None:
     """Compare remote academy data with the local manifest without writing anything."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = check_academy(client, store)
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "academy-check")
+    tracker.save()
+    try:
+        with client:
+            rep = check_academy(client, store, progress=tracker)
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     if report:
         write_report(report, "academy-check", {"academy": rep})
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"unchanged": rep.unchanged, "failed": len(rep.failed)})
 
     typer.echo(
         f"unchanged={rep.unchanged} changed={len(rep.changed)} "
@@ -296,13 +331,20 @@ def images_sync(
     report: ReportOption = None,
 ) -> None:
     """Download image assets discovered in locally stored JSON artifacts."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = sync_images(client, store, force=force)
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "images-sync")
+    tracker.save()
+    try:
+        with client:
+            rep = sync_images(client, store, force=force, progress=tracker)
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     if report:
         write_report(report, "images-sync", {"images": rep})
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"downloaded": rep.downloaded, "failed": len(rep.failed)})
 
     typer.echo(
         f"downloaded={rep.downloaded} skipped={rep.skipped} "
@@ -326,13 +368,20 @@ def images_check(
     report: ReportOption = None,
 ) -> None:
     """Check local image presence and optionally compare remote hashes."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        rep = check_images(client, store, local_only=local_only)
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "images-check")
+    tracker.save()
+    try:
+        with client:
+            rep = check_images(client, store, local_only=local_only, progress=tracker)
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     if report:
         write_report(report, "images-check", {"images": rep})
         typer.echo(f"report: {report}")
+    tracker.finish(counters={"unchanged": rep.unchanged, "failed": len(rep.failed)})
 
     typer.echo(
         f"unchanged={rep.unchanged} changed={len(rep.changed)} "
@@ -364,11 +413,17 @@ def sync(
     report: ReportOption = None,
 ) -> None:
     """Download all public data: heroes, academy, and image assets."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        heroes = sync_heroes(client, store, force=force)
-        academy = sync_academy(client, store, force=force)
-        img = sync_images(client, store, force=force) if images else None
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "sync")
+    tracker.save()
+    try:
+        with client:
+            heroes = sync_heroes(client, store, force=force, progress=tracker)
+            academy = sync_academy(client, store, force=force, progress=tracker)
+            img = sync_images(client, store, force=force, progress=tracker) if images else None
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     reports: dict[str, Any] = {"heroes": heroes, "academy": academy}
     if img is not None:
@@ -376,6 +431,14 @@ def sync(
     if report:
         write_report(report, "sync", reports)
         typer.echo(f"report:   {report}")
+
+    tracker.finish(
+        counters={
+            "heroes_downloaded": heroes.downloaded,
+            "academy_downloaded": academy.downloaded,
+            "images_downloaded": img.downloaded if img else 0,
+        }
+    )
 
     typer.echo(
         f"heroes:   downloaded={heroes.downloaded} skipped={heroes.skipped} "
@@ -420,11 +483,21 @@ def check(
     report: ReportOption = None,
 ) -> None:
     """Check all public data against local artifacts without writing anything."""
-    _, client, store = _build(output, base_url, delay)
-    with client:
-        heroes = check_heroes(client, store)
-        academy = check_academy(client, store)
-        img = check_images(client, store, local_only=local_only) if images else None
+    settings, client, store = _build(output, base_url, delay)
+    tracker = ProgressTracker(progress_path(settings.output_dir), "check")
+    tracker.save()
+    try:
+        with client:
+            heroes = check_heroes(client, store, progress=tracker)
+            academy = check_academy(client, store, progress=tracker)
+            img = (
+                check_images(client, store, local_only=local_only, progress=tracker)
+                if images
+                else None
+            )
+    except Exception as exc:
+        tracker.fail(str(exc))
+        raise
 
     reports: dict[str, Any] = {"heroes": heroes, "academy": academy}
     if img is not None:
@@ -432,6 +505,14 @@ def check(
     if report:
         write_report(report, "check", reports)
         typer.echo(f"report:   {report}")
+
+    tracker.finish(
+        counters={
+            "heroes_unchanged": heroes.unchanged,
+            "academy_unchanged": academy.unchanged,
+            "images_unchanged": img.unchanged if img else 0,
+        }
+    )
 
     def line(label: str, rep: Any) -> str:
         base = (

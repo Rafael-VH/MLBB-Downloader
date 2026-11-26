@@ -58,6 +58,7 @@ Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--report`, `
 
 - `--name <name>` para heroes (hoy existe `--hero-id`).
 - `images check --local-only` (rehash disco, sin fetch remoto).
+- sync/check escriben `_progress.json` en el output (fase, contadores, estado).
 - `--report-file` con formato explícito (hoy `--report` infiere por extensión).
 - `--verbose/--quiet` y salida JSON machine-readable.
 - Progreso en vivo (útil también para GUI/logs).

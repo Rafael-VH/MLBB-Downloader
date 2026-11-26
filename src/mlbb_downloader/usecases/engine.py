@@ -20,7 +20,10 @@ import hashlib
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mlbb_downloader.adapters.progress import ProgressTracker
 
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore, serialize_json
@@ -206,11 +209,22 @@ def sync_many(
     force: bool = False,
     page_size: int | None = None,
     flush_every: int = DEFAULT_FLUSH_EVERY,
+    progress: ProgressTracker | None = None,
 ) -> SyncReport:
     report = report if report is not None else SyncReport()
     started = time.monotonic()
     for index, artifact in enumerate(artifacts, start=1):
         _sync(client, store, artifact, report, force=force, page_size=page_size)
+        if progress is not None:
+            progress.tick(
+                current=artifact.key,
+                counters={
+                    "downloaded": report.downloaded,
+                    "skipped": report.skipped,
+                    "failed": len(report.failed),
+                    "unavailable": len(report.unavailable),
+                },
+            )
         if index % flush_every == 0:
             store.flush()
     store.flush()
@@ -240,11 +254,24 @@ def check_many(
     report: CheckReport | None = None,
     *,
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> CheckReport:
     report = report if report is not None else CheckReport()
     started = time.monotonic()
     for artifact in artifacts:
         _check(client, store, artifact, report, page_size=page_size)
+        if progress is not None:
+            progress.tick(
+                current=artifact.key,
+                counters={
+                    "unchanged": report.unchanged,
+                    "changed": len(report.changed),
+                    "new": len(report.new),
+                    "missing": len(report.missing),
+                    "corrupted": len(report.corrupted),
+                    "failed": len(report.failed),
+                },
+            )
     report.elapsed += time.monotonic() - started
     return report
 
@@ -257,6 +284,7 @@ def check_manifest(
     prefix: str | None = None,
     skip: frozenset[str] | set[str] = frozenset(),
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> CheckReport:
     """Re-fetch and compare exactly the artifacts recorded in the manifest."""
     report = report if report is not None else CheckReport()
@@ -273,5 +301,17 @@ def check_manifest(
             params=dict(item.params),
         )
         _check(client, store, artifact, report, page_size=page_size)
+        if progress is not None:
+            progress.tick(
+                current=artifact.key,
+                counters={
+                    "unchanged": report.unchanged,
+                    "changed": len(report.changed),
+                    "new": len(report.new),
+                    "missing": len(report.missing),
+                    "corrupted": len(report.corrupted),
+                    "failed": len(report.failed),
+                },
+            )
     report.elapsed += time.monotonic() - started
     return report

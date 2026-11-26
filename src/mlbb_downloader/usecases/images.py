@@ -9,8 +9,12 @@ from __future__ import annotations
 import hashlib
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mlbb_downloader.adapters.arena import ArenaClient
+
+if TYPE_CHECKING:
+    from mlbb_downloader.adapters.progress import ProgressTracker
 from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.images import (
     ImageAsset,
@@ -86,14 +90,26 @@ def sync_images(
     *,
     force: bool = False,
     flush_every: int = 25,
+    progress: ProgressTracker | None = None,
 ) -> SyncReport:
     started = time.monotonic()
     report = SyncReport()
     assets = collect_image_assets(store)
+    if progress is not None:
+        progress.set_phase("images:sync", total=len(assets))
 
     for index, asset in enumerate(assets, start=1):
         if not force and store.exists(asset.key):
             report.skipped += 1
+            if progress is not None:
+                progress.tick(
+                    current=asset.key,
+                    counters={
+                        "downloaded": report.downloaded,
+                        "skipped": report.skipped,
+                        "failed": len(report.failed),
+                    },
+                )
             continue
         try:
             result = client.get_bytes(asset.download_url)
@@ -101,6 +117,15 @@ def sync_images(
             report.failed.append(
                 Failure(key=asset.key, endpoint=asset.download_url, error=str(exc))
             )
+            if progress is not None:
+                progress.tick(
+                    current=asset.key,
+                    counters={
+                        "downloaded": report.downloaded,
+                        "skipped": report.skipped,
+                        "failed": len(report.failed),
+                    },
+                )
             continue
 
         store.save_bytes(
@@ -111,6 +136,15 @@ def sync_images(
             content_type=result.content_type,
         )
         report.downloaded += 1
+        if progress is not None:
+            progress.tick(
+                current=asset.key,
+                counters={
+                    "downloaded": report.downloaded,
+                    "skipped": report.skipped,
+                    "failed": len(report.failed),
+                },
+            )
         if index % flush_every == 0:
             store.flush()
 
@@ -124,6 +158,7 @@ def check_images(
     store: DataStore,
     *,
     local_only: bool = False,
+    progress: ProgressTracker | None = None,
 ) -> CheckReport:
     """Check image presence/integrity.
 
@@ -133,38 +168,48 @@ def check_images(
     started = time.monotonic()
     report = CheckReport()
     assets = collect_image_assets(store)
+    if progress is not None:
+        progress.set_phase("images:check", total=len(assets))
 
     for asset in assets:
         item = store.manifest.items.get(asset.key)
         if item is None:
             report.new.append(asset.key)
-            continue
-        target = store.root / item.path
-        if not target.exists():
-            report.missing.append(asset.key)
-            continue
-
-        disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
-        if disk_hash != item.sha256:
-            report.corrupted.append(asset.key)
-            continue
-
-        if local_only:
-            report.unchanged += 1
-            continue
-
-        try:
-            result = client.get_bytes(asset.download_url)
-        except ApiError as exc:
-            report.failed.append(
-                Failure(key=asset.key, endpoint=asset.download_url, error=str(exc))
-            )
-            continue
-        remote_hash = hashlib.sha256(result.data).hexdigest()
-        if remote_hash != item.sha256:
-            report.changed.append(asset.key)
         else:
-            report.unchanged += 1
+            target = store.root / item.path
+            if not target.exists():
+                report.missing.append(asset.key)
+            else:
+                disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+                if disk_hash != item.sha256:
+                    report.corrupted.append(asset.key)
+                elif local_only:
+                    report.unchanged += 1
+                else:
+                    try:
+                        result = client.get_bytes(asset.download_url)
+                    except ApiError as exc:
+                        report.failed.append(
+                            Failure(key=asset.key, endpoint=asset.download_url, error=str(exc))
+                        )
+                    else:
+                        remote_hash = hashlib.sha256(result.data).hexdigest()
+                        if remote_hash != item.sha256:
+                            report.changed.append(asset.key)
+                        else:
+                            report.unchanged += 1
+        if progress is not None:
+            progress.tick(
+                current=asset.key,
+                counters={
+                    "unchanged": report.unchanged,
+                    "changed": len(report.changed),
+                    "new": len(report.new),
+                    "missing": len(report.missing),
+                    "corrupted": len(report.corrupted),
+                    "failed": len(report.failed),
+                },
+            )
 
     report.elapsed = time.monotonic() - started
     return report

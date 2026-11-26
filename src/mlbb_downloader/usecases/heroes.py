@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mlbb_downloader.adapters.arena import ArenaClient
+
+if TYPE_CHECKING:
+    from mlbb_downloader.adapters.progress import ProgressTracker
 from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.keying import hero_identity, local_entity_ids
 from mlbb_downloader.domain.layout import sanitize_component
@@ -78,19 +82,34 @@ def sync_heroes(
     limit: int | None = None,
     force: bool = False,
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> SyncReport:
     """Download hero data, skipping anything already stored."""
     started = time.monotonic()
     report = SyncReport()
 
+    if progress is not None:
+        progress.set_phase("heroes:index")
     index_records = sync_one(client, store, INDEX, report, force=force, page_size=page_size) or []
     if hero_id is None:
-        sync_many(client, store, COLLECTIONS, report, force=force, page_size=page_size)
+        if progress is not None:
+            progress.set_phase("heroes:collections", total=len(COLLECTIONS))
+        sync_many(
+            client,
+            store,
+            COLLECTIONS,
+            report,
+            force=force,
+            page_size=page_size,
+            progress=progress,
+        )
 
     heroes = _select_heroes(index_records, hero_id=hero_id, limit=limit)
-    artifacts = (
+    artifacts = list(
         artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
     )
+    if progress is not None:
+        progress.set_phase("heroes:details", total=len(artifacts))
     sync_many(
         client,
         store,
@@ -98,6 +117,7 @@ def sync_heroes(
         report,
         force=force,
         page_size=page_size,
+        progress=progress,
     )
 
     report.elapsed = time.monotonic() - started
@@ -110,6 +130,7 @@ def check_heroes(
     *,
     hero_id: int | None = None,
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> CheckReport:
     """Compare remote data against local artifacts.
 
@@ -119,9 +140,13 @@ def check_heroes(
     started = time.monotonic()
     report = CheckReport()
 
+    if progress is not None:
+        progress.set_phase("heroes:index")
     index_records = check_one(client, store, INDEX, report, page_size=page_size) or []
     if hero_id is None:
-        check_many(client, store, COLLECTIONS, report, page_size=page_size)
+        if progress is not None:
+            progress.set_phase("heroes:collections", total=len(COLLECTIONS))
+        check_many(client, store, COLLECTIONS, report, page_size=page_size, progress=progress)
 
         local_ids = local_entity_ids(store.manifest, INDEX_ENDPOINT)
         for hero in index_records:
@@ -129,6 +154,8 @@ def check_heroes(
             if hid not in local_ids:
                 report.not_downloaded += 1
 
+        if progress is not None:
+            progress.set_phase("heroes:manifest")
         check_manifest(
             client,
             store,
@@ -136,17 +163,16 @@ def check_heroes(
             prefix=INDEX_ENDPOINT,
             skip={INDEX.key, *(a.key for a in COLLECTIONS)},
             page_size=page_size,
+            progress=progress,
         )
     else:
         heroes = _select_heroes(index_records, hero_id=hero_id, limit=None)
-        for hero in heroes:
-            check_many(
-                client,
-                store,
-                hero_artifacts(*_identity_fields(hero)),
-                report,
-                page_size=page_size,
-            )
+        artifacts = list(
+            artifact for hero in heroes for artifact in hero_artifacts(*_identity_fields(hero))
+        )
+        if progress is not None:
+            progress.set_phase("heroes:details", total=len(artifacts))
+        check_many(client, store, artifacts, report, page_size=page_size, progress=progress)
 
     report.elapsed = time.monotonic() - started
     return report

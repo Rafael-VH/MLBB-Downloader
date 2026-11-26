@@ -15,9 +15,12 @@ decision.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlbb_downloader.adapters.arena import ArenaClient
+
+if TYPE_CHECKING:
+    from mlbb_downloader.adapters.progress import ProgressTracker
 from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.keying import hero_identity, item_key, local_entity_ids
 from mlbb_downloader.domain.layout import sanitize_component
@@ -186,35 +189,46 @@ def sync_academy(
     limit: int | None = None,
     force: bool = False,
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> SyncReport:
     """Download academy game data, skipping anything already stored."""
     started = time.monotonic()
     report = SyncReport()
 
+    if progress is not None:
+        progress.set_phase("academy:catalog")
     catalog_records = (
         sync_one(client, store, CATALOG, report, force=force, page_size=page_size) or []
     )
+    collections = [artifact for artifact in ACADEMY_COLLECTIONS if artifact is not CATALOG]
+    if progress is not None:
+        progress.set_phase("academy:collections", total=len(collections))
     sync_many(
         client,
         store,
-        (artifact for artifact in ACADEMY_COLLECTIONS if artifact is not CATALOG),
+        collections,
         report,
         force=force,
         page_size=page_size,
+        progress=progress,
     )
 
     identities = _identities(catalog_records, limit)
+    hero_tasks = [
+        artifact
+        for hero_id, folder in identities
+        for artifact in hero_artifacts(hero_id, folder)
+    ]
+    if progress is not None:
+        progress.set_phase("academy:heroes", total=len(hero_tasks))
     sync_many(
         client,
         store,
-        (
-            artifact
-            for hero_id, folder in identities
-            for artifact in hero_artifacts(hero_id, folder)
-        ),
+        hero_tasks,
         report,
         force=force,
         page_size=page_size,
+        progress=progress,
     )
 
     lane_tasks: list[Artifact] = []
@@ -223,6 +237,8 @@ def sync_academy(
         lane_tasks.extend(lane_artifacts(hero_id, folder, lanes))
 
     if lane_tasks:
+        if progress is not None:
+            progress.set_phase("academy:lanes", total=len(lane_tasks))
         sync_many(
             client,
             store,
@@ -230,6 +246,7 @@ def sync_academy(
             report,
             force=force,
             page_size=page_size,
+            progress=progress,
         )
 
     store.flush()
@@ -242,6 +259,7 @@ def check_academy(
     store: DataStore,
     *,
     page_size: int | None = None,
+    progress: ProgressTracker | None = None,
 ) -> CheckReport:
     """Compare remote academy data against local artifacts.
 
@@ -251,6 +269,8 @@ def check_academy(
     started = time.monotonic()
     report = CheckReport()
 
+    if progress is not None:
+        progress.set_phase("academy:catalog")
     catalog_records = check_one(client, store, CATALOG, report, page_size=page_size) or []
 
     local_ids = local_entity_ids(store.manifest, ACADEMY_PREFIX)
@@ -259,6 +279,8 @@ def check_academy(
         if hero_id not in local_ids:
             report.not_downloaded += 1
 
+    if progress is not None:
+        progress.set_phase("academy:manifest")
     check_manifest(
         client,
         store,
@@ -266,6 +288,7 @@ def check_academy(
         prefix=ACADEMY_PREFIX,
         skip={CATALOG.key},
         page_size=page_size,
+        progress=progress,
     )
 
     report.elapsed = time.monotonic() - started
