@@ -137,9 +137,16 @@ def check_images(
         if item is None:
             report.new.append(asset.key)
             continue
-        if not (store.root / item.path).exists():
+        target = store.root / item.path
+        if not target.exists():
             report.missing.append(asset.key)
             continue
+
+        disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+        if disk_hash != item.sha256:
+            report.corrupted.append(asset.key)
+            continue
+
         try:
             result = client.get_bytes(asset.download_url)
         except ApiError as exc:
@@ -147,8 +154,8 @@ def check_images(
                 Failure(key=asset.key, endpoint=asset.download_url, error=str(exc))
             )
             continue
-        digest = hashlib.sha256(result.data).hexdigest()
-        if digest != item.sha256:
+        remote_hash = hashlib.sha256(result.data).hexdigest()
+        if remote_hash != item.sha256:
             report.changed.append(asset.key)
         else:
             report.unchanged += 1

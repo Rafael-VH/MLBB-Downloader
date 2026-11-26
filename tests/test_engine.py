@@ -256,3 +256,25 @@ def test_load_records_is_empty_when_the_artifact_is_absent(tmp_path: Path) -> No
     store = make_store(tmp_path)
 
     assert load_records(store, "/missing") == []
+
+
+def test_check_reports_corrupted_local_file(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=envelope([{"id": 1}], 1))
+
+    store = make_store(tmp_path)
+    artifact = Artifact("/heroes", "heroes/index.json")
+    with make_client(handler) as client:
+        sync_one(client, store, artifact, SyncReport())
+
+    # corrupt the file on disk
+    target = tmp_path / "heroes" / "index.json"
+    target.write_text("corrupted", encoding="utf-8")
+
+    report = CheckReport()
+    with make_client(handler) as client:
+        check_one(client, store, artifact, report)
+
+    assert report.corrupted == [artifact.key]
+    assert report.changed == []
+    assert report.unchanged == 0

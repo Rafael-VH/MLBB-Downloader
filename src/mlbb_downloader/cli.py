@@ -124,13 +124,14 @@ def heroes_check(
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "
         f"new={len(report.new)} missing={len(report.missing)} "
-        f"not_downloaded={report.not_downloaded} "
+        f"corrupted={len(report.corrupted)} not_downloaded={report.not_downloaded} "
         f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
     )
     groups = (
         ("CHANGED", report.changed),
         ("NEW", report.new),
         ("MISSING", report.missing),
+        ("CORRUPTED", report.corrupted),
     )
     for label, items in groups:
         for item in items[:10]:
@@ -192,13 +193,14 @@ def academy_check(
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "
         f"new={len(report.new)} missing={len(report.missing)} "
-        f"not_downloaded={report.not_downloaded} "
+        f"corrupted={len(report.corrupted)} not_downloaded={report.not_downloaded} "
         f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
     )
     groups = (
         ("CHANGED", report.changed),
         ("NEW", report.new),
         ("MISSING", report.missing),
+        ("CORRUPTED", report.corrupted),
     )
     for label, items in groups:
         for item in items[:10]:
@@ -282,9 +284,15 @@ def images_check(
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "
         f"new={len(report.new)} missing={len(report.missing)} "
-        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        f"corrupted={len(report.corrupted)} failed={len(report.failed)} "
+        f"elapsed={report.elapsed:.1f}s"
     )
-    groups = (("CHANGED", report.changed), ("NEW", report.new), ("MISSING", report.missing))
+    groups = (
+        ("CHANGED", report.changed),
+        ("NEW", report.new),
+        ("MISSING", report.missing),
+        ("CORRUPTED", report.corrupted),
+    )
     for label, items in groups:
         for item in items[:10]:
             typer.echo(f"  {label} {item}")

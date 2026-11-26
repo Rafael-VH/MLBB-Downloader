@@ -122,3 +122,22 @@ def test_check_images_reports_missing_and_changed(tmp_path: Path) -> None:
     assert wp_key in report.missing
     assert any("head.jpg" in k or "cdn.test/head.jpg" in k for k in report.changed)
     assert report.unchanged == 1
+
+
+def test_check_images_reports_corrupted_local_file(tmp_path: Path) -> None:
+    store = DataStore(tmp_path, base_url="https://api.test/api")
+    seed_hero(store)
+    state = {"head.jpg": b"HEAD", "painting.png": b"PAINT", "wp.jpg": b"WALL"}
+
+    with make_client(image_handler(state)) as client:
+        sync_images(client, store)
+
+    head_key = image_key("https://cdn.test/head.jpg")
+    head_path = tmp_path / store.manifest.items[head_key].path
+    head_path.write_bytes(b"BAD")
+
+    with make_client(image_handler(state)) as client:
+        report = check_images(client, DataStore(tmp_path))
+
+    assert head_key in report.corrupted
+    assert head_key not in report.changed

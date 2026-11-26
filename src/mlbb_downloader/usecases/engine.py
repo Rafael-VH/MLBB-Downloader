@@ -74,6 +74,7 @@ class CheckReport:
     changed: list[str] = field(default_factory=list)
     new: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
+    corrupted: list[str] = field(default_factory=list)
     not_downloaded: int = 0
     failed: list[Failure] = field(default_factory=list)
     unavailable: list[Failure] = field(default_factory=list)
@@ -157,12 +158,19 @@ def _check(
 
     if item is None:
         report.new.append(artifact.key)
-    elif not (store.root / item.path).exists():
-        report.missing.append(artifact.key)
-    elif hashlib.sha256(serialize_json(payload)).hexdigest() != item.sha256:
-        report.changed.append(artifact.key)
     else:
-        report.unchanged += 1
+        target = store.root / item.path
+        if not target.exists():
+            report.missing.append(artifact.key)
+        else:
+            disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+            remote_hash = hashlib.sha256(serialize_json(payload)).hexdigest()
+            if disk_hash != item.sha256:
+                report.corrupted.append(artifact.key)
+            elif remote_hash != item.sha256:
+                report.changed.append(artifact.key)
+            else:
+                report.unchanged += 1
 
     return fetched.records
 
