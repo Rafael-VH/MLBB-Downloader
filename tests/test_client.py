@@ -3,8 +3,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from mlbb_downloader.api.client import ArenaClient
-from mlbb_downloader.api.errors import ApiError
+from mlbb_downloader.adapters.arena import ArenaClient
+from mlbb_downloader.errors import ApiError
 
 
 def client_with(handler, *, retries: int = 0, sleeps: list[float] | None = None) -> ArenaClient:

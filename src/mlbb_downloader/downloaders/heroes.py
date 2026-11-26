@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.domain.keying import hero_identity, local_entity_ids
 from mlbb_downloader.downloaders.engine import (
     Artifact,
@@ -17,7 +17,7 @@ from mlbb_downloader.downloaders.engine import (
     sync_many,
     sync_one,
 )
-from mlbb_downloader.storage.store import DataStore
+from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.layout import sanitize_component
 
 __all__ = [

@@ -3,8 +3,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from mlbb_downloader.api.client import ArenaClient
-from mlbb_downloader.api.errors import IncompletePageError
+from mlbb_downloader.adapters.arena import ArenaClient
+from mlbb_downloader.errors import IncompletePageError
 
 
 def envelope(records: list, total: int) -> dict:

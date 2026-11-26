@@ -3,7 +3,7 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from mlbb_downloader import cli
-from mlbb_downloader.api.errors import ApiError
+from mlbb_downloader.errors import ApiError
 
 runner = CliRunner()
 

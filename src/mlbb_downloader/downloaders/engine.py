@@ -22,10 +22,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlbb_downloader.api.client import ArenaClient
-from mlbb_downloader.api.errors import ApiError, IncompletePageError
+from mlbb_downloader.adapters.arena import ArenaClient
+from mlbb_downloader.errors import ApiError, IncompletePageError
 from mlbb_downloader.domain.keying import item_key
-from mlbb_downloader.storage.store import DataStore, serialize_json
+from mlbb_downloader.adapters.fsstore import DataStore, serialize_json
 
 DEFAULT_FLUSH_EVERY = 25
 

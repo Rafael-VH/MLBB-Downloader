@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.domain.registry import (
     ACADEMY_CATALOG,
     ACADEMY_EMBLEMS,
@@ -48,7 +48,7 @@ from mlbb_downloader.downloaders.engine import (
     sync_many,
     sync_one,
 )
-from mlbb_downloader.storage.store import DataStore
+from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.layout import sanitize_component
 
 ACADEMY_PREFIX = "/academy"

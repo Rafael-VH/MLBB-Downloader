@@ -4,14 +4,14 @@ from pathlib import Path
 
 import httpx
 
-from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.downloaders.academy import (
     ACADEMY_COLLECTIONS,
     check_academy,
     hero_lanes,
     sync_academy,
 )
-from mlbb_downloader.storage.store import DataStore
+from mlbb_downloader.adapters.fsstore import DataStore
 
 CATALOG_RECORD = {
     "data": {

@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 
 from mlbb_downloader import __version__
-from mlbb_downloader.api.errors import ApiError, IncompletePageError
+from mlbb_downloader.errors import ApiError, IncompletePageError
 from mlbb_downloader.config import (
     DEFAULT_BASE_URL,
     DEFAULT_DELAY,

@@ -1,4 +1,6 @@
-"""Output path construction that cannot escape the data root."""
+"""Output path construction that cannot escape the data root.
+
+Adapter concern: resolves real filesystem paths and enforces containment."""
 
 from __future__ import annotations
 

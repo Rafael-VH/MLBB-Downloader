@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.adapters.arena import ArenaClient
 
 WIN_RATE_PATH = "/addon/win-rate-calculator"
 IP_PATH = "/addon/ip"
