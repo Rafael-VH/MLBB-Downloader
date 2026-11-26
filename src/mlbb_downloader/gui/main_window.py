@@ -10,6 +10,7 @@ from typing import Any
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -47,10 +48,13 @@ class MainWindow(QMainWindow):
 
         self.output_edit = QLineEdit(str(default_output_dir()))
         self.browse_btn = QPushButton("Browse")
-        self.sync_btn = QPushButton("Sync all")
-        self.check_btn = QPushButton("Check all")
+        self.scope_combo = QComboBox()
+        self.scope_combo.addItems(["All", "Heroes", "Academy", "Images"])
+        self.sync_btn = QPushButton("Sync")
+        self.check_btn = QPushButton("Check")
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setEnabled(False)
+        self.clear_log_btn = QPushButton("Clear log")
         self.images_check = QCheckBox("Images")
         self.images_check.setChecked(True)
         self.local_only_check = QCheckBox("Local-only check")
@@ -69,9 +73,12 @@ class MainWindow(QMainWindow):
         top.addWidget(self.browse_btn)
 
         actions = QHBoxLayout()
+        actions.addWidget(QLabel("Scope:"))
+        actions.addWidget(self.scope_combo)
         actions.addWidget(self.sync_btn)
         actions.addWidget(self.check_btn)
         actions.addWidget(self.cancel_btn)
+        actions.addWidget(self.clear_log_btn)
         actions.addWidget(self.images_check)
         actions.addWidget(self.local_only_check)
         actions.addStretch(1)
@@ -92,6 +99,7 @@ class MainWindow(QMainWindow):
         self.sync_btn.clicked.connect(self._run_sync)
         self.check_btn.clicked.connect(self._run_check)
         self.cancel_btn.clicked.connect(self._cancel_job)
+        self.clear_log_btn.clicked.connect(self.log.clear)
 
         self.timer = QTimer(self)
         self.timer.setInterval(500)
@@ -113,6 +121,11 @@ class MainWindow(QMainWindow):
             self.images_check.setChecked(data["images"])
         if isinstance(data.get("local_only"), bool):
             self.local_only_check.setChecked(data["local_only"])
+        scope = data.get("scope")
+        if isinstance(scope, str):
+            idx = self.scope_combo.findText(scope)
+            if idx >= 0:
+                self.scope_combo.setCurrentIndex(idx)
 
     def _save_settings(self) -> None:
         save_gui_settings(
@@ -120,6 +133,7 @@ class MainWindow(QMainWindow):
                 "output_dir": self.output_edit.text(),
                 "images": self.images_check.isChecked(),
                 "local_only": self.local_only_check.isChecked(),
+                "scope": self.scope_combo.currentText(),
             }
         )
 
@@ -153,7 +167,13 @@ class MainWindow(QMainWindow):
 
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
-        for w in (self.sync_btn, self.check_btn, self.browse_btn, self.output_edit):
+        for w in (
+            self.sync_btn,
+            self.check_btn,
+            self.browse_btn,
+            self.output_edit,
+            self.scope_combo,
+        ):
             w.setEnabled(not busy)
         self.cancel_btn.setEnabled(busy)
         self.status_label.setText("Running..." if busy else "Ready")
@@ -183,13 +203,14 @@ class MainWindow(QMainWindow):
     def _run_job(self, command: str) -> None:
         if self._busy:
             return
+        scope = self.scope_combo.currentText().lower()
         include_images = self.images_check.isChecked()
         local_only = self.local_only_check.isChecked()
         self._cancel_event = threading.Event()
         self._set_busy(True)
         self.progress.setRange(0, 0)
         self.phase_label.setText("Phase: starting")
-        self._log(f"== {command} ==")
+        self._log(f"== {command} [{scope}] ==")
 
         cancel = self._cancel_event
 
@@ -197,15 +218,35 @@ class MainWindow(QMainWindow):
             _dir, client, store = self._build()
             with client:
                 if command == "sync":
-                    heroes = sync_heroes(client, store, cancel=cancel)
-                    academy = sync_academy(client, store, cancel=cancel)
-                    img = sync_images(client, store, cancel=cancel) if include_images else None
+                    heroes = (
+                        sync_heroes(client, store, cancel=cancel)
+                        if scope in {"all", "heroes"}
+                        else None
+                    )
+                    academy = (
+                        sync_academy(client, store, cancel=cancel)
+                        if scope in {"all", "academy"}
+                        else None
+                    )
+                    img = (
+                        sync_images(client, store, cancel=cancel)
+                        if scope == "images" or (scope == "all" and include_images)
+                        else None
+                    )
                 else:
-                    heroes = check_heroes(client, store, cancel=cancel)
-                    academy = check_academy(client, store, cancel=cancel)
+                    heroes = (
+                        check_heroes(client, store, cancel=cancel)
+                        if scope in {"all", "heroes"}
+                        else None
+                    )
+                    academy = (
+                        check_academy(client, store, cancel=cancel)
+                        if scope in {"all", "academy"}
+                        else None
+                    )
                     img = (
                         check_images(client, store, local_only=local_only, cancel=cancel)
-                        if include_images
+                        if scope == "images" or (scope == "all" and include_images)
                         else None
                     )
             return {"heroes": heroes, "academy": academy, "images": img}
