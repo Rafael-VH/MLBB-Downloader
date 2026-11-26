@@ -26,7 +26,12 @@ from PySide6.QtWidgets import (
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.adapters.progress import progress_path
-from mlbb_downloader.config import Settings, default_output_dir
+from mlbb_downloader.config import (
+    Settings,
+    default_output_dir,
+    load_gui_settings,
+    save_gui_settings,
+)
 from mlbb_downloader.gui.workers import JobResult, TaskWorker
 from mlbb_downloader.usecases.academy import check_academy, sync_academy
 from mlbb_downloader.usecases.heroes import check_heroes, sync_heroes
@@ -96,6 +101,48 @@ class MainWindow(QMainWindow):
         from PySide6.QtCore import QThreadPool
 
         self.pool = QThreadPool.globalInstance()
+        self._load_settings()
+        self._build_menu()
+
+    def _load_settings(self) -> None:
+        data = load_gui_settings()
+        output = data.get("output_dir")
+        if isinstance(output, str) and output:
+            self.output_edit.setText(output)
+        if isinstance(data.get("images"), bool):
+            self.images_check.setChecked(data["images"])
+        if isinstance(data.get("local_only"), bool):
+            self.local_only_check.setChecked(data["local_only"])
+
+    def _save_settings(self) -> None:
+        save_gui_settings(
+            {
+                "output_dir": self.output_edit.text(),
+                "images": self.images_check.isChecked(),
+                "local_only": self.local_only_check.isChecked(),
+            }
+        )
+
+    def closeEvent(self, event: Any) -> None:  # noqa: N802 - Qt API
+        self._save_settings()
+        super().closeEvent(event)
+
+    def _build_menu(self) -> None:
+        menu = self.menuBar().addMenu("Help")
+        about = menu.addAction("About")
+        about.triggered.connect(self._show_about)
+
+    def _show_about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About MLBB Downloader",
+            "MLBB Downloader\n\n"
+            "Unofficial tool for downloading public Mobile Legends: Bang Bang data "
+            "from the Rone Arena API.\n\n"
+            "Not endorsed by, sponsored by, or associated with Moonton. "
+            "Mobile Legends: Bang Bang and related assets are trademarks of their "
+            "respective owners.",
+        )
 
     def _browse(self) -> None:
         path = QFileDialog.getExistingDirectory(
