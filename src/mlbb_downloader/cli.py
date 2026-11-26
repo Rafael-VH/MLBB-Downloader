@@ -2,23 +2,48 @@
 
 from __future__ import annotations
 
+import functools
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
+from mlbb_downloader.addon import ip_location, win_rate_calculator
 from mlbb_downloader.api.client import ArenaClient
+from mlbb_downloader.api.errors import ApiError
 from mlbb_downloader.config import Settings, default_output_dir
+from mlbb_downloader.downloaders.academy import check_academy, sync_academy
 from mlbb_downloader.downloaders.heroes import check_heroes, sync_heroes
 from mlbb_downloader.storage.store import DataStore
 
 app = typer.Typer(help="Download Mobile Legends: Bang Bang data from the Rone Arena API.")
 heroes_app = typer.Typer(help="Hero data: list, detail, stats, relations and wallpapers.")
+academy_app = typer.Typer(
+    help="Academy game data: items, spells, emblems, ranks and hero win rates."
+)
+addon_app = typer.Typer(help="One-shot utilities. Never part of a bulk download.")
 app.add_typer(heroes_app, name="heroes")
+app.add_typer(academy_app, name="academy")
+app.add_typer(addon_app, name="addon")
 
 OutputOption = Annotated[Path | None, typer.Option("--output", "-o", help="Output directory.")]
 BaseUrlOption = Annotated[str | None, typer.Option("--base-url", help="Override the API base URL.")]
 DelayOption = Annotated[float | None, typer.Option("--delay", help="Seconds between requests.")]
+
+
+def _guard(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Report API failures as one clean line instead of a traceback."""
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return func(*args, **kwargs)
+        except ApiError as exc:
+            typer.secho(f"error: {exc.message}", err=True, fg=typer.colors.RED)
+            raise typer.Exit(code=1) from None
+
+    return wrapper
 
 
 def _build(
@@ -45,6 +70,7 @@ def _build(
 
 
 @heroes_app.command("sync")
+@_guard
 def heroes_sync(
     output: OutputOption = None,
     limit: Annotated[
@@ -71,18 +97,16 @@ def heroes_sync(
 
 
 @heroes_app.command("check")
+@_guard
 def heroes_check(
     output: OutputOption = None,
-    limit: Annotated[
-        int | None, typer.Option("--limit", help="Only check the first N heroes.")
-    ] = None,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
     """Compare the remote data with the local manifest without writing anything."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_heroes(client, store, limit=limit)
+        report = check_heroes(client, store)
 
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "
@@ -100,7 +124,105 @@ def heroes_check(
             typer.echo(f"  {label} {item}")
 
 
+@academy_app.command("sync")
+@_guard
+def academy_sync(
+    output: OutputOption = None,
+    limit: Annotated[
+        int | None, typer.Option("--limit", help="Only sync the first N heroes.")
+    ] = None,
+    force: Annotated[bool, typer.Option("--force", help="Re-download everything.")] = False,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Download academy game data, skipping anything already stored."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        report = sync_academy(client, store, limit=limit, force=force)
+
+    typer.echo(
+        f"downloaded={report.downloaded} skipped={report.skipped} "
+        f"failed={len(report.failed)} unavailable={len(report.unavailable)} "
+        f"elapsed={report.elapsed:.1f}s"
+    )
+    for failure in report.failed[:10]:
+        typer.echo(f"  FAILED {failure.endpoint}: {failure.error}", err=True)
+    for failure in report.unavailable[:5]:
+        typer.echo(f"  UNAVAILABLE {failure.endpoint}: {failure.error}", err=True)
+
+    if report.failed:
+        raise typer.Exit(code=1)
+
+
+@academy_app.command("check")
+@_guard
+def academy_check(
+    output: OutputOption = None,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Compare remote academy data with the local manifest without writing anything."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        report = check_academy(client, store)
+
+    typer.echo(
+        f"unchanged={report.unchanged} changed={len(report.changed)} "
+        f"new={len(report.new)} missing={len(report.missing)} "
+        f"not_downloaded={report.not_downloaded} "
+        f"failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+    )
+    groups = (
+        ("CHANGED", report.changed),
+        ("NEW", report.new),
+        ("MISSING", report.missing),
+    )
+    for label, items in groups:
+        for item in items[:10]:
+            typer.echo(f"  {label} {item}")
+
+
+@addon_app.command("win-rate")
+@_guard
+def addon_win_rate(
+    match_now: Annotated[int, typer.Option("--match-now", help="Matches played so far.")],
+    wr_now: Annotated[float, typer.Option("--wr-now", help="Current win rate in percent.")],
+    wr_future: Annotated[float, typer.Option("--wr-future", help="Target win rate in percent.")],
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Consecutive wins needed to reach a target win rate."""
+    _, client, _ = _build(None, base_url, delay)
+    with client:
+        payload = win_rate_calculator(
+            client,
+            matches_now=match_now,
+            win_rate_now=wr_now,
+            win_rate_future=wr_future,
+        )
+
+    typer.echo(f"required_no_lose_matches={payload.get('required_no_lose_matches')}")
+    if payload.get("message"):
+        typer.echo(str(payload["message"]))
+
+
+@addon_app.command("ip")
+@_guard
+def addon_ip(base_url: BaseUrlOption = None, delay: DelayOption = None) -> None:
+    """Show the location the API resolves for the caller's IP."""
+    _, client, _ = _build(None, base_url, delay)
+    with client:
+        payload = ip_location(client)
+
+    data = payload.get("data") or {}
+    typer.echo(
+        f"city={data.get('city')} state={data.get('state')} "
+        f"country={data.get('country')} lang={data.get('lang')}"
+    )
+
+
 @app.command()
+@_guard
 def status(output: OutputOption = None) -> None:
     """Show what is already stored locally."""
     directory = Path(output) if output else default_output_dir()
