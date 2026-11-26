@@ -17,3 +17,6 @@ htmlcov/
 data/
 out/
 *.part
+
+# IDE
+.obsidian/
