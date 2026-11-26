@@ -35,9 +35,9 @@ Opciones: `--output/-o`, `--limit`, `--force`, `--images` (sync), `--base-url`, 
 | Comando | Descripción |
 |---|---|
 | `mlbb images sync` | Descarga imágenes descubiertas en JSON locales |
-| `mlbb images check` | Verifica presencia local y hash remoto |
+| `mlbb images check` | Verifica integridad local; con `--local-only` no descarga remoto |
 
-Opciones: `--output/-o`, `--force` (sync), `--base-url`, `--delay`.
+Opciones: `--output/-o`, `--force` (sync), `--local-only` (check), `--base-url`, `--delay`.
 
 ### Addon
 

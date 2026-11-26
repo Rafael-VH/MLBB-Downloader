@@ -122,11 +122,13 @@ def sync_images(
 def check_images(
     client: ArenaClient,
     store: DataStore,
+    *,
+    local_only: bool = False,
 ) -> CheckReport:
-    """Check image presence/integrity by re-downloading and comparing hashes.
+    """Check image presence/integrity.
 
-    The API provides no ETag/Last-Modified; hash comparison is the only remote
-    change signal, same as JSON artifacts.
+    With ``local_only=True`` only disk-vs-manifest hashes are verified, so no
+    remote download happens. Otherwise remote bytes are fetched and compared.
     """
     started = time.monotonic()
     report = CheckReport()
@@ -145,6 +147,10 @@ def check_images(
         disk_hash = hashlib.sha256(target.read_bytes()).hexdigest()
         if disk_hash != item.sha256:
             report.corrupted.append(asset.key)
+            continue
+
+        if local_only:
+            report.unchanged += 1
             continue
 
         try:

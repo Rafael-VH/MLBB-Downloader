@@ -32,7 +32,7 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 
 ### P2 — Operación y confiabilidad
 
-5. **`images check --local-only`**: rehash local sin re-descargar; el check remoto sigue disponible.
+5. ~~**`images check --local-only`**~~: `images check --local-only` y `check --local-only` verifican hash local sin fetch remoto.
 6. **`status` con corruptos**: conteo rápido por rehash local opcional o al vuelo liviano.
 7. **Reportes exportables**: JSON/Markdown por corrida (`reports/` o salida estable).
 8. **Checkpoint de job**: `_progress.json` opcional para GUI/jobs largos; manifest ya cubre lo esencial.

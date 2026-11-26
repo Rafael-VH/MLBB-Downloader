@@ -282,13 +282,16 @@ def images_sync(
 @_guard
 def images_check(
     output: OutputOption = None,
+    local_only: Annotated[
+        bool, typer.Option("--local-only", help="Only rehash local files; skip remote downloads.")
+    ] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
-    """Check local image presence and compare remote hashes."""
+    """Check local image presence and optionally compare remote hashes."""
     _, client, store = _build(output, base_url, delay)
     with client:
-        report = check_images(client, store)
+        report = check_images(client, store, local_only=local_only)
 
     typer.echo(
         f"unchanged={report.unchanged} changed={len(report.changed)} "
@@ -359,6 +362,10 @@ def check(
     images: Annotated[
         bool, typer.Option("--images/--no-images", help="Include image assets.")
     ] = True,
+    local_only: Annotated[
+        bool,
+        typer.Option("--local-only", help="For images, only rehash local files; skip remote."),
+    ] = False,
     base_url: BaseUrlOption = None,
     delay: DelayOption = None,
 ) -> None:
@@ -367,7 +374,7 @@ def check(
     with client:
         heroes = check_heroes(client, store)
         academy = check_academy(client, store)
-        img = check_images(client, store) if images else None
+        img = check_images(client, store, local_only=local_only) if images else None
 
     def line(label: str, report: Any) -> str:
         base = (

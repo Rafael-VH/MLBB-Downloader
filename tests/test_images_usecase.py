@@ -141,3 +141,26 @@ def test_check_images_reports_corrupted_local_file(tmp_path: Path) -> None:
 
     assert head_key in report.corrupted
     assert head_key not in report.changed
+
+
+def test_check_images_local_only_skips_remote(tmp_path: Path) -> None:
+    store = DataStore(tmp_path, base_url="https://api.test/api")
+    seed_hero(store)
+    state = {"head.jpg": b"HEAD", "painting.png": b"PAINT", "wp.jpg": b"WALL"}
+
+    with make_client(image_handler(state)) as client:
+        sync_images(client, store)
+
+    calls: list[str] = []
+
+    def no_network(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(500, content=b"should not be called")
+
+    with make_client(no_network) as client:
+        report = check_images(client, DataStore(tmp_path), local_only=True)
+
+    assert calls == []
+    assert report.unchanged == 3
+    assert report.changed == []
+    assert report.failed == []
