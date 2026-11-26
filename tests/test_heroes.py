@@ -5,8 +5,8 @@ from pathlib import Path
 import httpx
 
 from mlbb_downloader.adapters.arena import ArenaClient
-from mlbb_downloader.downloaders.heroes import HERO_SUBRESOURCES, check_heroes, sync_heroes
 from mlbb_downloader.adapters.fsstore import DataStore
+from mlbb_downloader.usecases.heroes import HERO_SUBRESOURCES, check_heroes, sync_heroes
 
 HERO = {"hero_id": 1, "data": {"hero": {"data": {"name": "Miya"}}}}
 

@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from mlbb_downloader.adapters.manifest_store import ManifestStore
+from mlbb_downloader.adapters.paths import data_path
 from mlbb_downloader.domain.keying import item_key
 from mlbb_downloader.domain.manifest import ManifestItem
-from mlbb_downloader.adapters.paths import data_path
 
 
 def serialize_json(payload: Any) -> bytes:

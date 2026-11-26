@@ -3,9 +3,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from mlbb_downloader.addon import ip_location, win_rate_calculator
 from mlbb_downloader.adapters.arena import ArenaClient
 from mlbb_downloader.errors import ApiError
+from mlbb_downloader.usecases.addon import ip_location, win_rate_calculator
 
 
 def make_client(handler, *, retries: int = 0) -> ArenaClient:

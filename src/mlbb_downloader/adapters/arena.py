@@ -18,7 +18,6 @@ from typing import Any
 import httpx
 
 from mlbb_downloader import __version__
-from mlbb_downloader.errors import ApiError, IncompletePageError
 from mlbb_downloader.config import (
     DEFAULT_BASE_URL,
     DEFAULT_DELAY,
@@ -26,6 +25,7 @@ from mlbb_downloader.config import (
     DEFAULT_RETRIES,
     DEFAULT_TIMEOUT,
 )
+from mlbb_downloader.errors import ApiError, IncompletePageError
 
 MAX_PAGE_SIZE = 500
 MAX_PAGES = 10_000

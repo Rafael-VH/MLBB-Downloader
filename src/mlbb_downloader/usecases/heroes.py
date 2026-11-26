@@ -6,8 +6,10 @@ import time
 from dataclasses import dataclass
 
 from mlbb_downloader.adapters.arena import ArenaClient
+from mlbb_downloader.adapters.fsstore import DataStore
 from mlbb_downloader.domain.keying import hero_identity, local_entity_ids
-from mlbb_downloader.downloaders.engine import (
+from mlbb_downloader.domain.layout import sanitize_component
+from mlbb_downloader.usecases.engine import (
     Artifact,
     CheckReport,
     Failure,
@@ -17,8 +19,6 @@ from mlbb_downloader.downloaders.engine import (
     sync_many,
     sync_one,
 )
-from mlbb_downloader.adapters.fsstore import DataStore
-from mlbb_downloader.domain.layout import sanitize_component
 
 __all__ = [
     "HERO_SUBRESOURCES",

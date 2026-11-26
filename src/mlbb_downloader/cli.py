@@ -9,13 +9,13 @@ from typing import Annotated, Any
 
 import typer
 
-from mlbb_downloader.addon import ip_location, win_rate_calculator
 from mlbb_downloader.adapters.arena import ArenaClient
-from mlbb_downloader.errors import ApiError
-from mlbb_downloader.config import Settings, default_output_dir
-from mlbb_downloader.downloaders.academy import check_academy, sync_academy
-from mlbb_downloader.downloaders.heroes import check_heroes, sync_heroes
 from mlbb_downloader.adapters.fsstore import DataStore
+from mlbb_downloader.config import Settings, default_output_dir
+from mlbb_downloader.errors import ApiError
+from mlbb_downloader.usecases.academy import check_academy, sync_academy
+from mlbb_downloader.usecases.addon import ip_location, win_rate_calculator
+from mlbb_downloader.usecases.heroes import check_heroes, sync_heroes
 
 app = typer.Typer(help="Download Mobile Legends: Bang Bang data from the Rone Arena API.")
 heroes_app = typer.Typer(help="Hero data: list, detail, stats, relations and wallpapers.")
