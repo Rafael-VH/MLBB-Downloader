@@ -44,7 +44,12 @@ Archivo: `manifest.json` en el root de salida.
 ```text
 data/
   manifest.json
+  _progress.json
   heroes/
+    index.json
+    rank.json
+    positions.json
+    wallpapers-gallery.json
     index.json
     <Hero>/
       detail.json
@@ -111,8 +116,8 @@ Los artifacts JSON se guardan como:
 
 No se modelan payloads de upstream con pydantic: las formas varían entre list/detail.
 
-## Pendientes de modelo
+## Notas
 
-- `_progress.json` por job para GUI/cancel-resume fino.
-- Export de reportes (`.json`/`.md`) por corrida.
-- Modelo de credenciales/auth para dominio user (nunca en manifest público).
+- `_progress.json` es un checkpoint opcional atómico (fase, contadores, estado) para GUI/jobs largos; no reemplaza al manifest.
+- Los reportes `--report` se exportan como JSON/MD por corrida.
+- Pendiente: modelo de credenciales/auth para dominio user (nunca en manifest público).

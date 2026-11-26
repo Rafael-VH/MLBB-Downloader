@@ -12,13 +12,13 @@ Construir una aplicación Python (CLI primero, GUI al final) que descargue datos
 | Cliente HTTP | ✅ | `adapters/arena.py` (gzip, delay, retries, paginación 1-based, `total` verificado) |
 | Manifest/resume | ✅ | `domain/manifest.py` v2, `adapters/manifest_store.py`, `adapters/fsstore.py` |
 | Check | ✅ | changed/new/missing/corrupted/not_downloaded/failed |
-| Heroes JSON | ✅ parcial | index + 8 subrecursos por héroe; faltan rank/positions/wallpapers gallery |
+| Heroes JSON | ✅ | index, rank, positions, wallpapers gallery + 8 subrecursos por héroe; `--hero-id` |
 | Academy JSON | ✅ | colecciones + per-hero con políticas UGC/redundante/discontinued |
-| Imágenes | ✅ MVP | extraídas de JSON locales; sync/check; dedupe por URL canónica |
+| Imágenes | ✅ | extraídas de JSON locales; sync/check; dedupe por URL canónica; `--local-only` |
 | Addon | ✅ | win-rate, ip |
-| CLI Download/Check All | ✅ | `mlbb sync`, `mlbb check` |
-| GUI | ❌ | fase final |
-| Packaging/CI/release | ❌ | PyInstaller, workflows, LICENSE, CHANGELOG pendientes |
+| CLI Download/Check All | ✅ | `mlbb sync/check`, `--report`, `_progress.json` |
+| GUI | ⚠️ MVP | PySide6, scope, workers, progreso, cancel, settings, About |
+| Packaging/CI/release | ⚠️ base | PyInstaller spec + smoke local OK; CI/release workflows; falta limpio/CI real |
 | User/auth | ❌ | opt-in, no implementado |
 
 ## Brechas prioritarias

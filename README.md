@@ -2,7 +2,7 @@
 
 Download Mobile Legends: Bang Bang data from the [Rone Arena API](https://arena.rone.dev/api) to a local, resumable, hash-verified dataset.
 
-> **Status:** CLI. Heroes and academy game data are implemented end to end, plus the two addon tools. The GUI is planned as the final phase.
+> **Status:** CLI maduro + GUI MVP (PySide6). Heroes, academy e imágenes soportan sync/check, reportes, progreso y cancelación cooperativa.
 
 ## Requirements
 
@@ -21,10 +21,12 @@ uv sync
 # All public data (heroes + academy + images)
 uv run mlbb sync
 uv run mlbb check
+uv run mlbb check --local-only          # rehash local, sin fetch remoto de imágenes
 
-# Heroes: list, detail, stats, relations and wallpapers
+# Heroes: list, detail, stats, relations, wallpapers, rank, positions
 uv run mlbb heroes sync
 uv run mlbb heroes check
+uv run mlbb heroes sync --hero-id 1     # solo un héroe
 
 # Academy: items, spells, emblems, ranks and per-hero win rates
 uv run mlbb academy sync
@@ -33,17 +35,24 @@ uv run mlbb academy check
 # Image assets (discovered from JSON already in the store)
 uv run mlbb images sync
 uv run mlbb images check
-uv run mlbb heroes sync --images   # sync JSON + images in one pass
+uv run mlbb images check --local-only
+uv run mlbb heroes sync --images        # sync JSON + images in one pass
+
+# Reports and local status
+uv run mlbb sync --report ./reports/sync.json
+uv run mlbb check --report ./reports/check.md
+uv run mlbb status --verify
 
 # Addon tools: one-shot, never downloaded in bulk
 uv run mlbb addon win-rate --match-now 100 --wr-now 50 --wr-future 60
 uv run mlbb addon ip
+```
 
-# Limit a run while experimenting
-uv run mlbb academy sync --limit 3 --output ./data
+### GUI (MVP)
 
-# Inspect what is stored locally
-uv run mlbb status
+```bash
+uv sync --extra gui
+uv run mlbb-gui
 ```
 
 Default output directory is `%APPDATA%/MLBBDownloader/data` on Windows,
@@ -55,8 +64,12 @@ Default output directory is `%APPDATA%/MLBBDownloader/data` on Windows,
 ```text
 data/
 ├── manifest.json                    # every artifact, its hash, size and origin
+├── _progress.json                   # optional job checkpoint (phase/counters/status)
 ├── heroes/
 │   ├── index.json
+│   ├── rank.json
+│   ├── positions.json
+│   ├── wallpapers-gallery.json
 │   └── Miya/
 │       ├── detail.json
 │       ├── stats.json

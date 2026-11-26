@@ -27,6 +27,7 @@ src/mlbb_downloader/
   cli.py
   config.py
   errors.py
+  reporting.py       # export JSON/Markdown de reportes
   domain/
     __init__.py
     images.py        # extracción/normalización de ImageAsset (puro)
@@ -40,6 +41,7 @@ src/mlbb_downloader/
     fsstore.py       # DataStore, escritura atómica JSON/bytes, hashing
     manifest_store.py# carga/guardado atómico del manifest
     paths.py         # resolución de rutas y contención en root
+    progress.py      # checkpoint atómico _progress.json
   usecases/
     __init__.py
     engine.py        # sync/check genérico para artifacts JSON
@@ -47,6 +49,11 @@ src/mlbb_downloader/
     academy.py       # dominio academy sobre engine
     addon.py         # llamadas one-shot
     images.py        # sync/check de imágenes desde JSON locales
+  gui/
+    __init__.py
+    app.py           # entrypoint PySide6
+    main_window.py   # ventana principal, polling progreso
+    workers.py       # QRunnable + señales
 ```
 
 ## Decisiones de diseño
@@ -91,9 +98,10 @@ CLI -> usecases.images.sync_images
      -> ManifestStore.save
 ```
 
-## Evolución prevista para GUI
+## GUI (MVP)
 
-- GUI será otro shell sobre `usecases`, no una reescritura.
-- Los workers de GUI deben llamar usecases/adapters sin bloquear el hilo UI.
-- El progreso debe emitirse por eventos/callbacks; hoy los reportes son agregados al final.
-- PyInstaller será capa de entrega; app data en directorio de usuario, no junto al exe.
+- GUI es otro shell sobre `usecases`, sin reescritura de lógica.
+- `QThreadPool` + `QRunnable`/señales ejecutan sync/check fuera del hilo UI.
+- Progreso: `_progress.json` atómico escrito por usecases/engine; GUI hace polling.
+- Cancelación cooperativa: `JobCancelledError` + `threading.Event` pasado a engine/usecases.
+- PyInstaller: spec base en `packaging/mlbb-downloader.spec`; app data en directorio de usuario.
