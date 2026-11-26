@@ -18,6 +18,10 @@ uv sync
 ## Usage
 
 ```bash
+# All public data (heroes + academy + images)
+uv run mlbb sync
+uv run mlbb check
+
 # Heroes: list, detail, stats, relations and wallpapers
 uv run mlbb heroes sync
 uv run mlbb heroes check

@@ -298,6 +298,97 @@ def images_check(
             typer.echo(f"  {label} {item}")
 
 
+@app.command("sync")
+@_guard
+def sync(
+    output: OutputOption = None,
+    force: Annotated[bool, typer.Option("--force", help="Re-download everything.")] = False,
+    images: Annotated[
+        bool, typer.Option("--images/--no-images", help="Include image assets.")
+    ] = True,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Download all public data: heroes, academy, and image assets."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        heroes = sync_heroes(client, store, force=force)
+        academy = sync_academy(client, store, force=force)
+        img = sync_images(client, store, force=force) if images else None
+
+    typer.echo(
+        f"heroes:   downloaded={heroes.downloaded} skipped={heroes.skipped} "
+        f"failed={len(heroes.failed)} elapsed={heroes.elapsed:.1f}s"
+    )
+    typer.echo(
+        f"academy:  downloaded={academy.downloaded} skipped={academy.skipped} "
+        f"failed={len(academy.failed)} unavailable={len(academy.unavailable)} "
+        f"elapsed={academy.elapsed:.1f}s"
+    )
+    if img is not None:
+        typer.echo(
+            f"images:   downloaded={img.downloaded} skipped={img.skipped} "
+            f"failed={len(img.failed)} elapsed={img.elapsed:.1f}s"
+        )
+    for label, report in (("heroes", heroes), ("academy", academy)):
+        for failure in report.failed[:10]:
+            typer.echo(f"  FAILED [{label}] {failure.endpoint}: {failure.error}", err=True)
+    for failure in academy.unavailable[:5]:
+        typer.echo(f"  UNAVAILABLE [academy] {failure.endpoint}: {failure.error}", err=True)
+    if img is not None:
+        for failure in img.failed[:10]:
+            typer.echo(f"  FAILED [images] {failure.endpoint}: {failure.error}", err=True)
+
+    if heroes.failed or academy.failed or (img and img.failed):
+        raise typer.Exit(code=1)
+
+
+@app.command("check")
+@_guard
+def check(
+    output: OutputOption = None,
+    images: Annotated[
+        bool, typer.Option("--images/--no-images", help="Include image assets.")
+    ] = True,
+    base_url: BaseUrlOption = None,
+    delay: DelayOption = None,
+) -> None:
+    """Check all public data against local artifacts without writing anything."""
+    _, client, store = _build(output, base_url, delay)
+    with client:
+        heroes = check_heroes(client, store)
+        academy = check_academy(client, store)
+        img = check_images(client, store) if images else None
+
+    def line(label: str, report: Any) -> str:
+        base = (
+            f"{label:<8} unchanged={report.unchanged} changed={len(report.changed)} "
+            f"new={len(report.new)} missing={len(report.missing)} "
+            f"corrupted={len(report.corrupted)}"
+        )
+        nd = getattr(report, "not_downloaded", None)
+        if nd is not None:
+            base += f" not_downloaded={nd}"
+        base += f" failed={len(report.failed)} elapsed={report.elapsed:.1f}s"
+        return base
+
+    typer.echo(line("heroes:", heroes))
+    typer.echo(line("academy:", academy))
+    if img is not None:
+        typer.echo(line("images:", img))
+    for label, report in (("heroes", heroes), ("academy", academy), ("images", img)):
+        if report is None:
+            continue
+        for name, items in (
+            ("CHANGED", report.changed),
+            ("NEW", report.new),
+            ("MISSING", report.missing),
+            ("CORRUPTED", report.corrupted),
+        ):
+            for item in items[:10]:
+                typer.echo(f"  {name} [{label}] {item}")
+
+
 @app.command()
 @_guard
 def status(output: OutputOption = None) -> None:
