@@ -18,7 +18,7 @@ from mlbb_downloader.downloaders.engine import (
     sync_one,
 )
 from mlbb_downloader.storage.store import DataStore
-from mlbb_downloader.utils.slug import sanitize_component
+from mlbb_downloader.domain.layout import sanitize_component
 
 __all__ = [
     "HERO_SUBRESOURCES",

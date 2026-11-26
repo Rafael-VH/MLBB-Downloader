@@ -1,4 +1,7 @@
-"""Filesystem-safe naming for Windows."""
+"""Filesystem-safe naming for Windows.
+
+Layout rules that stay in the domain: how arbitrary names become path components.
+Resolving and validating real paths is adapter work (adapters.paths)."""
 
 from __future__ import annotations
 

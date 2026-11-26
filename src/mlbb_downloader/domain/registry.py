@@ -1,4 +1,4 @@
-"""Hand-written endpoint descriptors.
+"""Hand-written endpoint descriptors (pure catalogue).
 
 These are the contract the future OpenAPI generator has to reproduce. They are
 validated against real shapes observed on the live API:

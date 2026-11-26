@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mlbb_downloader.utils.slug import sanitize_component
+from mlbb_downloader.domain.layout import sanitize_component
 
 
 def data_path(root: Path, *parts: str) -> Path:

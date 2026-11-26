@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mlbb_downloader.storage.paths import data_path
-from mlbb_downloader.utils.slug import sanitize_component
+from mlbb_downloader.domain.layout import sanitize_component
 
 ILLEGAL = set('<>:"/\\|?*')
 
