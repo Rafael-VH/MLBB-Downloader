@@ -121,6 +121,20 @@ class ArenaClient:
 
             if not isinstance(payload, dict):
                 raise ApiError("response was not a JSON object", url=url)
+
+            code = payload.get("code")
+            if "code" in payload and payload.get("data") is None and str(code) not in {"0", "200"}:
+                message = (
+                    payload.get("message")
+                    or payload.get("msg")
+                    or f"API rejected the request (code {code})"
+                )
+                raise ApiError(
+                    str(message),
+                    status=response.status_code,
+                    code=code,
+                    url=url,
+                )
             return payload
 
     def get_paged(
