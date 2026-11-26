@@ -11,7 +11,7 @@ from typing import Any
 
 from mlbb_downloader.adapters.manifest_store import ManifestStore
 from mlbb_downloader.adapters.paths import data_path
-from mlbb_downloader.domain.keying import item_key
+from mlbb_downloader.domain.keying import image_key, item_key
 from mlbb_downloader.domain.manifest import ManifestItem
 
 
@@ -33,6 +33,10 @@ class DataStore:
     @staticmethod
     def manifest_key_for(endpoint: str, params: dict[str, Any] | None = None) -> str:
         return item_key(endpoint, params)
+
+    @staticmethod
+    def image_key_for(url: str) -> str:
+        return image_key(url)
 
     # -- queries -----------------------------------------------------------
     def exists(self, key: str) -> bool:
@@ -58,6 +62,10 @@ class DataStore:
     def sha256(self, key: str) -> str | None:
         item = self.manifest.items.get(key)
         return item.sha256 if item else None
+
+    def has_file(self, key: str) -> bool:
+        """True when the manifest entry exists and its file is present on disk."""
+        return self.exists(key)
 
     # -- writes ------------------------------------------------------------
     def save_json(
@@ -87,6 +95,40 @@ class DataStore:
             size=len(data),
             downloaded_at=datetime.now(UTC),
             total=total,
+            kind="json",
+        )
+        self.manifest.items[key] = item
+        return item
+
+    def save_bytes(
+        self,
+        key: str,
+        relative_path: str,
+        data: bytes,
+        *,
+        source_url: str,
+        endpoint: str = "",
+        params: dict[str, Any] | None = None,
+        content_type: str | None = None,
+    ) -> ManifestItem:
+        target = data_path(self.root, *relative_path.split("/"))
+        digest = hashlib.sha256(data).hexdigest()
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f"{target.name}.part")
+        partial.write_bytes(data)
+        os.replace(partial, target)
+
+        item = ManifestItem(
+            endpoint=endpoint,
+            params=dict(params or {}),
+            path=relative_path,
+            sha256=digest,
+            size=len(data),
+            downloaded_at=datetime.now(UTC),
+            kind="binary",
+            source_url=source_url,
+            content_type=content_type,
         )
         self.manifest.items[key] = item
         return item

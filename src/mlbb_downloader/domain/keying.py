@@ -8,7 +8,7 @@ centralise the defensive extraction so every domain reads identity the same way.
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from mlbb_downloader.domain.manifest import Manifest
 
@@ -52,3 +52,28 @@ def local_entity_ids(
         for item in manifest.items.values()
         if item.endpoint.startswith(prefix) and isinstance((value := item.params.get(param)), int)
     }
+
+
+def canonical_image_url(url: str) -> str:
+    """Normalize image URLs so the manifest dedupes by real source.
+
+    The API wraps many assets as ``https://wsrv.nl/?url=<encoded-origin>``.
+    We treat the decoded inner URL as canonical identity; callers may still
+    download through the wrapped URL.
+    """
+    raw = str(url).strip()
+    if not raw:
+        return ""
+    parts = urlsplit(raw)
+    host = (parts.netloc or "").lower()
+    if host == "wsrv.nl":
+        inner = parse_qs(parts.query).get("url", [None])[0]
+        if inner:
+            return inner.strip()
+    return raw
+
+
+def image_key(url: str) -> str:
+    """Stable manifest key for a binary image artifact."""
+    canonical = canonical_image_url(url)
+    return f"image::{canonical}"

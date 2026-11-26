@@ -12,17 +12,20 @@ from pydantic import BaseModel, Field
 
 
 class ManifestItem(BaseModel):
-    endpoint: str
+    endpoint: str = ""
     params: dict[str, Any] = Field(default_factory=dict)
     path: str
     sha256: str
     size: int
     downloaded_at: datetime
     total: int | None = None
+    kind: str = "json"
+    source_url: str | None = None
+    content_type: str | None = None
 
 
 class Manifest(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2
     base_url: str = ""
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     items: dict[str, ManifestItem] = Field(default_factory=dict)

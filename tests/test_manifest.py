@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from mlbb_downloader.adapters.manifest_store import ManifestStore
-from mlbb_downloader.domain.keying import item_key
+from mlbb_downloader.domain.keying import canonical_image_url, image_key, item_key
 from mlbb_downloader.domain.manifest import Manifest, ManifestItem
 
 
@@ -27,7 +27,7 @@ def test_roundtrip(tmp_path: Path) -> None:
     store.save(manifest)
     loaded = store.load()
 
-    assert loaded.schema_version == 1
+    assert loaded.schema_version == 2
     assert len(loaded.items) == 1
     assert next(iter(loaded.items.values())).sha256 == "a" * 64
 
@@ -61,3 +61,48 @@ def test_item_key_is_stable_across_param_order() -> None:
 
 def test_item_key_distinguishes_params() -> None:
     assert item_key("/heroes", {"size": 500}) != item_key("/heroes", {"size": 10})
+
+
+def test_loads_v1_manifest_compatibly(tmp_path: Path) -> None:
+    store = ManifestStore(tmp_path)
+    store.path.write_text(
+        """
+        {
+          "schema_version": 1,
+          "base_url": "https://api.test/api",
+          "generated_at": "2026-01-01T00:00:00Z",
+          "items": {
+            "/heroes": {
+              "endpoint": "/heroes",
+              "params": {},
+              "path": "heroes/index.json",
+              "sha256": "abc",
+              "size": 3,
+              "downloaded_at": "2026-01-01T00:00:00Z",
+              "total": 1
+            }
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    loaded = store.load()
+
+    assert loaded.schema_version == 1
+    item = loaded.items["/heroes"]
+    assert item.kind == "json"
+    assert item.source_url is None
+
+
+def test_canonical_image_url_unwraps_wsrv() -> None:
+    wrapped = (
+        "https://wsrv.nl/?url=https%3A%2F%2Fakmweb.youngjoygame.com%2Fweb%2Fgms%2Fimage%2Fa.jpg"
+    )
+    assert canonical_image_url(wrapped) == "https://akmweb.youngjoygame.com/web/gms/image/a.jpg"
+    assert canonical_image_url("https://example.com/a.png") == "https://example.com/a.png"
+
+
+def test_image_key_uses_canonical_url() -> None:
+    wrapped = "https://wsrv.nl/?url=https%3A%2F%2Fexample.com%2Fa.png"
+    assert image_key(wrapped) == image_key("https://example.com/a.png")
