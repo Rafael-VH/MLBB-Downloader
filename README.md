@@ -2,7 +2,7 @@
 
 Download Mobile Legends: Bang Bang data from the [Rone Arena API](https://arena.rone.dev/api) to a local, resumable, hash-verified dataset.
 
-> **Status:** CLI MVP. The heroes domain is implemented end to end. The GUI is planned as the final phase.
+> **Status:** CLI. Heroes and academy game data are implemented end to end, plus the two addon tools. The GUI is planned as the final phase.
 
 ## Requirements
 
@@ -18,14 +18,20 @@ uv sync
 ## Usage
 
 ```bash
-# Download hero data (skips anything already stored)
+# Heroes: list, detail, stats, relations and wallpapers
 uv run mlbb heroes sync
-
-# Only the first two heroes, into a throwaway directory
-uv run mlbb heroes sync --limit 2 --output ./data
-
-# Compare remote data against the local manifest (writes nothing)
 uv run mlbb heroes check
+
+# Academy: items, spells, emblems, ranks and per-hero win rates
+uv run mlbb academy sync
+uv run mlbb academy check
+
+# Addon tools: one-shot, never downloaded in bulk
+uv run mlbb addon win-rate --match-now 100 --wr-now 50 --wr-future 60
+uv run mlbb addon ip
+
+# Limit a run while experimenting
+uv run mlbb academy sync --limit 3 --output ./data
 
 # Inspect what is stored locally
 uv run mlbb status
@@ -39,23 +45,61 @@ Default output directory is `%APPDATA%/MLBBDownloader/data` on Windows,
 
 ```text
 data/
-├── manifest.json          # every artifact, its hash, size and origin
-└── heroes/
-    ├── index.json
-    └── Miya/
-        ├── detail.json
-        ├── stats.json
-        ├── skill-combos.json
-        ├── trends.json
-        ├── relations.json
-        ├── counters.json
-        ├── compatibility.json
-        └── wallpapers.json
+├── manifest.json                    # every artifact, its hash, size and origin
+├── heroes/
+│   ├── index.json
+│   └── Miya/
+│       ├── detail.json
+│       ├── stats.json
+│       ├── skill-combos.json
+│       ├── trends.json
+│       ├── relations.json
+│       ├── counters.json
+│       ├── compatibility.json
+│       └── wallpapers.json
+└── academy/
+    ├── version.json
+    ├── roles.json
+    ├── equipment.json
+    ├── equipment-expanded.json
+    ├── spells.json
+    ├── emblems.json
+    ├── ranks.json
+    └── heroes/
+        ├── catalog.json
+        ├── filter.json
+        └── Miya/
+            ├── lane.json
+            ├── stats.json
+            ├── counters.json
+            ├── teammates.json
+            ├── trends.json
+            ├── builds-gold.json
+            └── win-rate-gold.json
 ```
 
 Every artifact stores `{"endpoint", "total", "records"}`. The manifest lets a
 re-run skip completed work, and `check` detects changed, new and missing items
 without writing anything.
+
+## Download policy
+
+Bulk sync covers game data. A few endpoints are catalogued in
+`api/registry.py` but deliberately excluded:
+
+- **User-generated content** (`/academy/recommended`, `/academy/heroes/{id}/recommended`).
+  The global feed reports `total: 10000` and a single hero had 204 builds; the
+  detail payload is byte-identical to the list record, so enumerating it would
+  multiply the dataset without adding information.
+- **Redundant detail** (`/academy/ranks/{rank_id}`). The 29 rank ranges already
+  cover 1..9999 and the detail record duplicates the list entry.
+- **Discontinued endpoints** (`/academy/heroes/ratings`). The API answers HTTP
+  200 with `code: 10407` and `"接口下线"`; this is reported as unavailable, not
+  as a failure.
+
+`builds` and `win-rate/timeline` require a lane. The sync reads each hero's
+`lane` artifact and requests only the lanes that hero actually plays, instead
+of requesting all five blindly.
 
 ## Design notes
 
@@ -68,6 +112,10 @@ Measured against the live API, not assumed:
 - `Accept-Encoding: gzip` is pinned; the API defaults to zstd.
 - Payloads are raw upstream records with shapes that differ between list and
   detail endpoints, so no response models are generated.
+- One engine (`downloaders/engine.py`) owns resume, atomic writes, hashing and
+  reports; domains only declare artifacts to fetch.
+- The manifest is flushed every 25 artifacts. A crash can lose at most that
+  window of manifest entries; those files are fetched again, never corrupted.
 
 ## Development
 
