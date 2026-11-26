@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from mlbb_downloader.adapters.arena import ArenaClient
+from mlbb_downloader.adapters.arena import ArenaClient, BinaryResult
 from mlbb_downloader.errors import ApiError
 
 
@@ -101,3 +101,42 @@ def test_network_errors_become_api_errors_after_retries() -> None:
 
     with client_with(handler, retries=1) as client, pytest.raises(ApiError):
         client.get_json("/heroes")
+
+
+def test_get_bytes_returns_content_and_type() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers.get("accept") == "*/*"
+        return httpx.Response(200, content=b"pngdata", headers={"content-type": "image/png"})
+
+    with client_with(handler) as client:
+        result = client.get_bytes("https://cdn.test/a.png")
+
+    assert isinstance(result, BinaryResult)
+    assert result.data == b"pngdata"
+    assert result.content_type == "image/png"
+
+
+def test_get_bytes_retries_transient_errors() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(503)
+        return httpx.Response(200, content=b"ok")
+
+    with client_with(handler, retries=1) as client:
+        result = client.get_bytes("https://cdn.test/a.png")
+
+    assert calls["n"] == 2
+    assert result.data == b"ok"
+
+
+def test_get_bytes_rejects_oversized_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"123456")
+
+    with client_with(handler) as client, pytest.raises(ApiError) as excinfo:
+        client.get_bytes("https://cdn.test/a.png", max_bytes=4)
+
+    assert "too large" in excinfo.value.message

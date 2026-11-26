@@ -29,6 +29,7 @@ from mlbb_downloader.errors import ApiError, IncompletePageError
 
 MAX_PAGE_SIZE = 500
 MAX_PAGES = 10_000
+MAX_BYTES = 20 * 1024 * 1024
 RETRY_STATUS = frozenset({403, 405, 408, 425, 429, 500, 502, 503, 504})
 
 
@@ -38,6 +39,13 @@ class PagedResult:
     records: list[dict[str, Any]] = field(default_factory=list)
     total: int | None = None
     pages: int = 0
+
+
+@dataclass(slots=True)
+class BinaryResult:
+    url: str
+    data: bytes
+    content_type: str | None = None
 
 
 class ArenaClient:
@@ -136,6 +144,38 @@ class ArenaClient:
                     url=url,
                 )
             return payload
+
+    def get_bytes(self, url: str, *, max_bytes: int = MAX_BYTES) -> BinaryResult:
+        """Download raw bytes, reusing the same throttle/retry policy."""
+        attempt = 0
+        while True:
+            try:
+                self._wait()
+                response = self._client.get(url, headers={"accept": "*/*"})
+            except httpx.HTTPError as exc:
+                if attempt >= self.retries:
+                    raise ApiError(f"request failed: {exc}", url=url) from exc
+                self._backoff(attempt)
+                attempt += 1
+                continue
+
+            if response.status_code in RETRY_STATUS and attempt < self.retries:
+                self._backoff(attempt)
+                attempt += 1
+                continue
+
+            if response.status_code >= 400:
+                raise self._error_from(response, url)
+
+            data = response.content
+            if len(data) > max_bytes:
+                raise ApiError(
+                    f"response too large: {len(data)} bytes (limit {max_bytes})",
+                    status=response.status_code,
+                    url=url,
+                )
+            content_type = response.headers.get("content-type")
+            return BinaryResult(url=url, data=data, content_type=content_type)
 
     def get_paged(
         self,

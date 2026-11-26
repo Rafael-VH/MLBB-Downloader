@@ -1,6 +1,6 @@
-# Images subsystem
+﻿# Images subsystem
 
-Branch: `feat/academy-addon` · Delivery: work-unit commits · Runner: `uv run pytest -q`
+Branch: `feat/academy-addon` Â· Delivery: work-unit commits Â· Runner: `uv run pytest -q`
 
 ## Specs
 
@@ -16,10 +16,10 @@ Branch: `feat/academy-addon` · Delivery: work-unit commits · Runner: `uv run p
 | ID | Spec | Route | Status | Commit |
 | -- | ---- | ----- | ------ | ------ |
 | T1 | S1 S2 S3 | inline | done | this commit |
-| T2 | S1 S4 | inline | pending | — |
-| T3 | S3 S4 | inline | pending | — |
-| T4 | S1 S5 | inline | pending | — |
-| T5 | S6 | inline | pending | — |
+| T2 | S1 S4 | inline | done | `7f363a7` |
+| T3 | S3 S4 | inline | pending | â€” |
+| T4 | S1 S5 | inline | pending | â€” |
+| T5 | S6 | inline | pending | â€” |
 
 ## Log
 
