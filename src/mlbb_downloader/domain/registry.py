@@ -27,8 +27,8 @@ from typing import Literal
 
 Shape = Literal["paged", "raw"]
 IdKind = Literal["numeric", "slug"]
-Kind = Literal["collection", "per_entity", "discontinued", "redundant", "ugc"]
-Category = Literal["heroes", "academy"]
+Kind = Literal["collection", "per_entity", "discontinued", "redundant", "ugc", "interactive"]
+Category = Literal["heroes", "academy", "addon"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,8 +72,8 @@ HEROES_POSITIONS = EndpointSpec(
     note="hero position/filter list",
 )
 
-HEROES_WALLPAPERS = EndpointSpec(
-    id="heroes.wallpapers",
+HEROES_WALLPAPERS_GALLERY = EndpointSpec(
+    id="heroes.wallpapers-gallery",
     path="/heroes/wallpapers",
     params=("size", "index", "lang"),
     note="global wallpapers gallery",
@@ -405,7 +405,7 @@ HEROES_ENDPOINTS: tuple[EndpointSpec, ...] = (
     HEROES_INDEX,
     HEROES_RANK,
     HEROES_POSITIONS,
-    HEROES_WALLPAPERS,
+    HEROES_WALLPAPERS_GALLERY,
     HERO_DETAIL,
     HERO_STATS,
     HERO_SKILL_COMBOS,
@@ -416,6 +416,27 @@ HEROES_ENDPOINTS: tuple[EndpointSpec, ...] = (
     HERO_WALLPAPERS,
 )
 
+# -- addon ---------------------------------------------------------------------
+
+ADDON_WIN_RATE = EndpointSpec(
+    id="addon.win-rate",
+    path="/addon/win-rate-calculator",
+    category="addon",
+    kind="interactive",
+    params=("match-now", "wr-now", "wr-future"),
+    note="interactive calculator; not bulk-synced",
+)
+
+ADDON_IP = EndpointSpec(
+    id="addon.ip",
+    path="/addon/ip",
+    category="addon",
+    kind="interactive",
+    note="interactive IP lookup; not bulk-synced",
+)
+
+ADDON_ENDPOINTS: tuple[EndpointSpec, ...] = (ADDON_WIN_RATE, ADDON_IP)
+
 DESCRIPTORS: dict[str, EndpointSpec] = {
-    spec.id: spec for spec in (*HEROES_ENDPOINTS, *ACADEMY_ENDPOINTS)
+    spec.id: spec for spec in (*HEROES_ENDPOINTS, *ACADEMY_ENDPOINTS, *ADDON_ENDPOINTS)
 }

@@ -66,5 +66,5 @@ Fuente: `https://arena.rone.dev/api` + comportamiento observado en vivo. Esports
 
 ## Brechas de cobertura detectadas
 
-1. **Validación automática contra OpenAPI**: no hay script de verificación/generación; riesgo de deriva.
-2. **Cobertura de imágenes**: dirigida por campos conocidos; galería global y nuevos campos requieren extender `domain/images.py` con tests.
+1. **Cobertura de imágenes**: dirigida por campos conocidos; galería global y nuevos campos requieren extender `domain/images.py` con tests.
+2. **Registry check en CI**: existe `scripts/check_registry.py`, pero falta cablearlo a CI cuando exista.
